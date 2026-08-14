@@ -1,0 +1,20 @@
+BasicInfo:
+  Title                   : "ModelKit V0.2"
+  CompanyCode             : "00"
+  ProductCode             : "CTR-H-MKIT"
+  ContentType             : Application
+  Logo                    : Nintendo
+
+TitleInfo:
+  UniqueId                : 0x0F0A20
+  Category                : Application
+  Version                 : 0
+
+Option:
+  UseOnSD                 : true
+  EnableCompress          : true
+  FreeProductCode         : true
+  EnableCrypt             : false
+  MediaFootPadding        : false
+  EnableCardBus           : false
+  CryptoType              : 0x0
