@@ -67,12 +67,14 @@ the comparison strips a leading `v`.
 update check reports that the build has no version rather than guessing, so
 filling it in is step one of cutting any release.
 
-Attach **two copies of the same CIA** to each release:
+Attach **one CIA** to each release, named `modelkit<version>.cia` — e.g.
+`modelkit0.3.cia`. The QR code on this branch points straight at it, and the
+in-app updater reads the real download URL out of the API response, so it takes
+whatever `.cia` the release carries whatever it is called.
 
-| Asset name | Why |
-| --- | --- |
-| `modelkit<version>.cia` | The versioned download, e.g. `modelkit0.3.cia`. The QR code on this branch points straight at it, and the in-app updater takes whatever `.cia` the release carries. |
-| `modelkit.cia` | A fixed-name copy, so `/releases/latest/download/modelkit.cia` keeps resolving for anyone holding an older permanent link. |
+A second fixed-name copy used to be attached as well, to keep
+`/releases/latest/download/modelkit.cia` resolving. It is not attached any more:
+no release before v0.3 ever used that name, so nothing was holding such a link.
 
 `docs/install-qr.png` is regenerated per release and encodes that release's own
 versioned URL, so each branch's README installs the version that branch is.
