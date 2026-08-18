@@ -17,6 +17,10 @@ typedef enum
 	TITLE_STAY,  ///< Still in the front end.
 	TITLE_PLAY,  ///< Play was tapped - hand over to the workbench.
 	TITLE_QUIT,  ///< Quit was tapped - close the game.
+	// An update finished installing and the player asked to restart into it.
+	// Handled exactly like Quit by everything except the chainloader, which the
+	// updater has already pointed back at this title.
+	TITLE_RELAUNCH,
 } titleAction;
 
 // Parses the text the front end draws. Call once, after C2D_Init.
@@ -38,6 +42,16 @@ void titleReturnToLevels(void);
 int titleLevel(void);
 int titleLevelParts(void);
 void titleCaptureStartLevel(int level);
+
+// Tells the front end whether a level's kit is finished.
+//
+// The front end has no idea what a seated part is and no reach into the save
+// file; main.c owns both. So completion is pushed in rather than asked for, and
+// the grid ticks the levels it has been told about. The caller is expected to
+// push all twenty at once rather than only the one that just changed - that
+// makes this a statement about the whole save, which cannot fall behind it, in
+// place of an event that can be missed.
+void titleSetBuilt(int level, bool built);
 
 // One frame of front-end input. Reads the stylus itself, so hidScanInput must
 // already have run. Returns TITLE_STAY unless the player chose something.

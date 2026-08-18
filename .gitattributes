@@ -1,0 +1,14 @@
+# The devkitPro toolchain runs under MSYS2 and the sources are authored with
+# LF endings. Without this, git kept warning that it would rewrite them to CRLF
+# on checkout, which would show every file as changed for no reason.
+* text=auto eol=lf
+
+# Build products and shipped binaries are not text and must never be converted.
+*.3dsx  binary
+*.elf   binary
+*.smdh  binary
+*.bnr   binary
+*.cia   binary
+*.o     binary
+*.shbin binary
+*.png   binary

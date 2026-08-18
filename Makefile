@@ -38,11 +38,19 @@ DATA		:=	data
 INCLUDES	:=	include
 GRAPHICS	:=	gfx
 GFXBUILD	:=	$(BUILD)
-#ROMFS		:=	romfs
+# RomFs exists for exactly one file: romfs/cacert.pem, the CA bundle the updater
+# needs to trust github.com. The console's own root store predates every CA in
+# use today, so without this the update check fails with a TLS error and there
+# is no way to talk it round from inside the app.
+#
+# GFXBUILD deliberately stays at $(BUILD) on the line above - the graphics are
+# still statically linked into the binary, not moved into RomFs. Only the
+# certificates live here.
+ROMFS		:=	romfs
 #GFXBUILD	:=	$(ROMFS)/gfx
 
 APP_TITLE		:=	Model Kit
-APP_DESCRIPTION	:=	Model kit builder - base test
+APP_DESCRIPTION	:=	Snip, file and click together twenty plastic kits
 APP_AUTHOR		:=	steve
 
 #---------------------------------------------------------------------------------
@@ -50,7 +58,10 @@ APP_AUTHOR		:=	steve
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS	:=	-g -Wall -O2 -mword-relocations \
+# -Werror: the tree builds clean under -Wall, and on a console a warning that
+# scrolls past is a bug that ships. If a new one ever blocks you, fix the warning
+# rather than dropping this - or drop it here, in one place, deliberately.
+CFLAGS	:=	-g -Wall -Werror -O2 -mword-relocations \
 			-ffunction-sections \
 			$(ARCH)
 
@@ -61,13 +72,17 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:= -lcitro2d -lcitro3d -lctru -lm
+# curl and its mbedtls backend come first and in this order. The linker resolves
+# left to right, so putting them after -lctru leaves the TLS symbols undefined;
+# -lz last of the four because curl is built with zlib support and pulls inflate
+# out of it. These four are the only reason $(PORTLIBS) is on LIBDIRS below.
+LIBS	:= -lcurl -lmbedtls -lmbedx509 -lmbedcrypto -lz -lcitro2d -lcitro3d -lctru -lm
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:= $(CTRULIB)
+LIBDIRS	:= $(PORTLIBS) $(CTRULIB)
 
 
 #---------------------------------------------------------------------------------
@@ -162,11 +177,44 @@ ifneq ($(ROMFS),)
 	export _3DSXFLAGS += --romfs=$(CURDIR)/$(ROMFS)
 endif
 
-.PHONY: all clean
+#---------------------------------------------------------------------------------
+# CIA packaging. `make` still produces only the .3dsx - the .cia is a separate
+# `make cia`, because it takes a second toolchain pass and the day-to-day loop
+# is Azahar loading the .3dsx.
+#
+# makerom and bannertool both ship with devkitPro, so there is nothing to
+# install and nothing vendored into this repo; they are called out of
+# $(DEVKITPRO)/tools/bin by full path rather than trusted to be on PATH, which
+# they are not inside a plain msys2 login shell.
+#
+# Three inputs beyond the built .elf:
+#   modelkit.rsf   the makerom spec - title, UniqueId, permissions
+#   cia/banner.png 256x128 artwork for the Home Menu banner
+#   cia/banner.wav the jingle that plays with it, currently silence
+# The Home Menu icon and title text come from $(TARGET).smdh, the same one the
+# .3dsx already uses, so the two builds cannot describe themselves differently.
+#---------------------------------------------------------------------------------
+MAKEROM		:=	$(DEVKITPRO)/tools/bin/makerom
+BANNERTOOL	:=	$(DEVKITPRO)/tools/bin/bannertool
+
+.PHONY: all clean cia
 
 #---------------------------------------------------------------------------------
 all: $(BUILD) $(GFXBUILD) $(DEPSDIR) $(ROMFS_T3XFILES) $(T3XHFILES)
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+
+#---------------------------------------------------------------------------------
+cia: all $(OUTPUT).cia
+
+$(OUTPUT).banner	:	cia/banner.png cia/banner.wav
+	@echo banner ...
+	@$(BANNERTOOL) makebanner -i cia/banner.png -a cia/banner.wav -o $@
+
+$(OUTPUT).cia	:	$(OUTPUT).elf $(OUTPUT).smdh $(OUTPUT).banner modelkit.rsf romfs/cacert.pem
+	@echo $(notdir $@) ...
+	@$(MAKEROM) -f cia -o $@ -elf $(OUTPUT).elf -rsf modelkit.rsf \
+		-icon $(OUTPUT).smdh -banner $(OUTPUT).banner -exefslogo -target t
+	@echo built ... $(notdir $@)
 
 $(BUILD):
 	@mkdir -p $@
@@ -184,7 +232,8 @@ endif
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).3dsx $(OUTPUT).smdh $(TARGET).elf $(GFXBUILD)
+	@rm -fr $(BUILD) $(TARGET).3dsx $(OUTPUT).smdh $(TARGET).elf $(GFXBUILD) \
+		$(OUTPUT).cia $(OUTPUT).banner
 
 #---------------------------------------------------------------------------------
 $(GFXBUILD)/%.t3x	$(BUILD)/%.h	:	%.t3s

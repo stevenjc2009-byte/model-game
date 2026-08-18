@@ -114,8 +114,19 @@ main.o: \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/mesh.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/settings.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/controls.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/strings.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/title.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/updater.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/audio.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/memory_status.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/save.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/debug.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/tutorial_art.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/hint.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/texture_atlas.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/screenshot.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/camera.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/picking.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/build/vshader_shbin.h
 C:/devkitPro/libctru/include/3ds.h:
 C:/devkitPro/libctru/include/3ds/types.h:
@@ -231,6 +242,17 @@ C:/devkitPro/libctru/include/c2d/font.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/mesh.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/settings.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/controls.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/strings.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/title.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/updater.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/audio.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/memory_status.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/save.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/debug.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/tutorial_art.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/hint.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/texture_atlas.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/screenshot.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/camera.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/picking.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/build/vshader_shbin.h:

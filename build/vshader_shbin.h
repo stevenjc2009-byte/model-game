@@ -6,7 +6,7 @@
 extern const uint8_t vshader_shbin[];
 extern const uint8_t vshader_shbin_end[];
 #if __cplusplus >= 201103L
-static constexpr size_t vshader_shbin_size=508;
+static constexpr size_t vshader_shbin_size=540;
 #else
-static const size_t vshader_shbin_size=508;
+static const size_t vshader_shbin_size=540;
 #endif

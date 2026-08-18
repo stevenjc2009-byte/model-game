@@ -1,0 +1,87 @@
+# Model Kit
+
+A gunpla-style model building game for the Nintendo 3DS. Snip parts off the
+runner, file the nubs down and click them together — twenty kits, built on the
+bottom screen with the stylus.
+
+Homebrew, written in C against devkitARM, citro3d and citro2d.
+
+## Install
+
+Scan this with **FBI → Remote Install → Scan QR Code**:
+
+![Install QR code](docs/install-qr.png)
+
+Or download [`modelkit.cia`](https://github.com/stevenjc2009-byte/model-game/releases/latest/download/modelkit.cia)
+from the latest release and install it with FBI the usual way.
+
+The QR code always points at the newest release, so it never goes out of date
+and does not need regenerating when a new version ships.
+
+**Requirements**
+
+- A 3DS, 2DS, New 3DS or New 2DS running custom firmware (Luma3DS) with
+  signature patches. Unsigned titles will not install without them.
+- Aim the **rear** camera at the code from roughly nine inches away. The 3DS
+  camera is fixed focus, so distance matters more than lighting.
+
+## Updating
+
+Once installed the game can update itself. **Options → Check for Update** asks
+GitHub whether a newer release exists; if one does, tapping **Download** fetches
+it, installs it over the current version and restarts the game into the new
+build. Nothing is written to the SD card along the way, so no free space is
+needed beyond what the title itself takes.
+
+The updater needs wifi. It will say so on the top screen if it cannot get out.
+
+## Building from source
+
+Requires devkitPro with `devkitARM`, `libctru`, `citro3d`, `citro2d`, and these
+portlibs for the updater's HTTPS support:
+
+```bash
+dkp-pacman -S 3ds-curl 3ds-mbedtls
+```
+
+Then, from a devkitPro MSYS2 shell:
+
+```bash
+make
+```
+
+`make` produces `modelkit.3dsx` for the Homebrew Launcher. The installable title
+is a separate step, because it takes a second toolchain pass:
+
+```bash
+make cia
+```
+
+`romfs/cacert.pem` is the Mozilla CA bundle and is a required build input — the
+console's own certificate store is too old to verify github.com, so without it
+the update check fails. Refresh it from <https://curl.se/ca/cacert.pem>.
+
+## Releasing
+
+The updater compares GitHub's newest release tag against `MODELKIT_VERSION` in
+[`source/updater.h`](source/updater.h). Tags may be written `v0.2.1` or `0.2.1`;
+the comparison strips a leading `v`.
+
+`MODELKIT_VERSION` is currently blank on purpose. While it is blank the update
+check reports that the build has no version rather than guessing, so filling it
+in is step one of cutting any release.
+
+Attach **two copies of the same CIA** to each release:
+
+| Asset name | Why |
+| --- | --- |
+| `modelkit<version>.cia` | The versioned download, e.g. `modelkit0.2.1.cia`. The in-app updater takes whatever `.cia` the release carries, so this is the one it uses. |
+| `modelkit.cia` | A fixed-name copy. The install QR code points at `/releases/latest/download/modelkit.cia`, which only resolves if that exact name exists on the newest release. |
+
+Skip the second copy and the QR code stops working the moment a newer release
+is published — the versioned name changes every time, so a permanent QR has
+nothing stable to point at.
+
+## Licence
+
+See [LICENSE](LICENSE).

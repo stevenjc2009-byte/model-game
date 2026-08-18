@@ -1,10 +1,18 @@
 ; Vertex shader for the model kit part viewer.
-; Adapted from the devkitPro textured_cube example, with the texture
-; coordinate input/output removed - parts are untextured plastic for now.
+; Adapted from the devkitPro textured_cube example. Item 34 restored the
+; texture coordinate input/output the original example carried - see
+; texture_atlas.c/mesh.c for how uv is painted and assigned; this shader only
+; passes it through unchanged, no per-vertex transform needed.
 
 ; Uniforms
 .fvec projection[4], modelView[4]
 .fvec lightVec, lightHalfVec, lightClr, material[4]
+; Normals cannot ride the modelView matrix when it carries a non-uniform scale -
+; they come out skewed off the surface. For M = R*S the correct normal transform
+; is R*S^-1, and M*(S^-2 * n) is exactly that, so the reciprocal squares of the
+; scale go in here and the normal is pre-multiplied by them below. Rigid draws
+; set it to (1,1,1) and the multiply costs one instruction.
+.fvec nrmScale
 .alias mat_amb material[0]
 .alias mat_dif material[1]
 .alias mat_spe material[2]
@@ -18,10 +26,12 @@
 ; Outputs
 .out outpos position
 .out outclr color
+.out outtc0 texcoord0
 
 ; Inputs (defined as aliases for convenience)
 .alias inpos v0
 .alias innrm v1
+.alias intex v2
 
 .proc main
 	; Force the w component of inpos to be 1.0
@@ -41,12 +51,15 @@
 	dp4 outpos.w, projection[3], r1
 
 	; Transform the normal vector with the modelView matrix
-	; r1 = normalize(modelView * innrm)
+	; r1 = normalize(modelView * (nrmScale * innrm))
+	; The nrmScale multiply is what keeps the normal on the surface when the
+	; matrix carries a non-uniform scale; it is (1,1,1) for every other draw.
 	mov r0.xyz, innrm
-	mov r0.w,   zeros
-	dp4 r1.x,   modelView[0], r0
-	dp4 r1.y,   modelView[1], r0
-	dp4 r1.z,   modelView[2], r0
+	mul r3.xyz, nrmScale, r0
+	mov r3.w,   zeros
+	dp4 r1.x,   modelView[0], r3
+	dp4 r1.y,   modelView[1], r3
+	dp4 r1.z,   modelView[2], r3
 	mov r1.w,   zeros
 	dp3 r2,     r1, r1 ; r2 = x^2+y^2+z^2 for each component
 	rsq r2,     r2     ; r2 = 1/sqrt(r2)  ''
@@ -78,6 +91,10 @@
 
 	; outclr = clamp r1 to [0,1]
 	min outclr, ones, r1
+
+	; Pass the texture coordinate straight through - it is already baked into
+	; final atlas UV space by mesh.c's applyAtlasUV, nothing to transform.
+	mov outtc0, intex
 
 	; We're finished
 	end
