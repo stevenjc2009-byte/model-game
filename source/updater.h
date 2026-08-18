@@ -31,15 +31,13 @@
 // of "0.2.1" are the same version. Bump this in the same commit that cuts the
 // release, or the shipped build will offer itself an update forever.
 //
-// Deliberately blank right now. 0.2.0 is already out and the work in flight is
-// 0.2.1, but the number is not settled until every session working this tree has
-// landed, so putting a guess here would ship a build that lies about itself.
-//
-// While it is blank the updater refuses to compare - it reports that the build
-// has no version rather than treating an unset value as 0.0.0, which would make
-// every release on GitHub look newer and offer a pointless update on every
-// check. Filling this in is the only thing needed to switch it back on.
-#define MODELKIT_VERSION ""
+// Left blank between releases on purpose. While it is blank the updater refuses
+// to compare - it reports that the build has no version rather than treating an
+// unset value as 0.0.0, which would make every release on GitHub look newer and
+// offer a pointless update on every check. Filling it in is the only thing
+// needed to switch the check back on, and it is filled in by the same commit
+// that cuts the release so the shipped build cannot lie about itself.
+#define MODELKIT_VERSION "0.3"
 
 // Whether the line above has been filled in. Everything that prints or compares
 // the version goes through this so there is one answer to "do we know".

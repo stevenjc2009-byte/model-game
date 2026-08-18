@@ -8,15 +8,11 @@ Homebrew, written in C against devkitARM, citro3d and citro2d.
 
 ## Install
 
-Scan this with **FBI → Remote Install → Scan QR Code**:
+Scan the **QR code at the bottom of this page** with **FBI → Remote Install →
+Scan QR Code** and the console downloads and installs it on its own.
 
-![Install QR code](docs/install-qr.png)
-
-Or download [`modelkit.cia`](https://github.com/stevenjc2009-byte/model-game/releases/latest/download/modelkit.cia)
-from the latest release and install it with FBI the usual way.
-
-The QR code always points at the newest release, so it never goes out of date
-and does not need regenerating when a new version ships.
+Or download [`modelkit0.3.cia`](https://github.com/stevenjc2009-byte/model-game/releases/download/v0.3/modelkit0.3.cia)
+and install it with FBI the usual way.
 
 **Requirements**
 
@@ -67,21 +63,33 @@ The updater compares GitHub's newest release tag against `MODELKIT_VERSION` in
 [`source/updater.h`](source/updater.h). Tags may be written `v0.2.1` or `0.2.1`;
 the comparison strips a leading `v`.
 
-`MODELKIT_VERSION` is currently blank on purpose. While it is blank the update
-check reports that the build has no version rather than guessing, so filling it
-in is step one of cutting any release.
+`MODELKIT_VERSION` is blank between releases on purpose. While it is blank the
+update check reports that the build has no version rather than guessing, so
+filling it in is step one of cutting any release.
 
 Attach **two copies of the same CIA** to each release:
 
 | Asset name | Why |
 | --- | --- |
-| `modelkit<version>.cia` | The versioned download, e.g. `modelkit0.2.1.cia`. The in-app updater takes whatever `.cia` the release carries, so this is the one it uses. |
-| `modelkit.cia` | A fixed-name copy. The install QR code points at `/releases/latest/download/modelkit.cia`, which only resolves if that exact name exists on the newest release. |
+| `modelkit<version>.cia` | The versioned download, e.g. `modelkit0.3.cia`. The QR code on this branch points straight at it, and the in-app updater takes whatever `.cia` the release carries. |
+| `modelkit.cia` | A fixed-name copy, so `/releases/latest/download/modelkit.cia` keeps resolving for anyone holding an older permanent link. |
 
-Skip the second copy and the QR code stops working the moment a newer release
-is published — the versioned name changes every time, so a permanent QR has
-nothing stable to point at.
+`docs/install-qr.png` is regenerated per release and encodes that release's own
+versioned URL, so each branch's README installs the version that branch is.
+Generate it with error correction **L** — the 3DS camera is 640x480 and fixed
+focus, so fewer, fatter modules scan far better than heavy redundancy — and
+always decode the image back and compare it against the URL before shipping it.
+A QR pointing at the wrong release looks identical to a right one.
 
 ## Licence
 
 See [LICENSE](LICENSE).
+
+## Install QR code
+
+Aim the **rear** camera at this from roughly nine inches away, in
+**FBI → Remote Install → Scan QR Code**:
+
+![Install QR code](docs/install-qr.png)
+
+Installs **v0.3**.
