@@ -564,6 +564,25 @@ static void drawTopIdleCard(void)
 	C2D_Flush();
 }
 
+// Push the two geometry buffers out of the CPU's data cache and into the FCRAM
+// the GPU actually reads.
+//
+// Both are filled by a plain memcpy, which on real hardware leaves the bytes in
+// the ARM11's write-back cache. The GPU is a separate bus master: BufInfo_Add
+// hands it a physical address and it DMAs straight from memory, so anything
+// still dirty in cache is simply not there as far as it is concerned. The tail
+// of a fresh copy is the part most likely to still be dirty, which shows up as
+// missing or scrambled triangles rather than a clean failure.
+//
+// citro3d cannot do this for us - BufInfo_Add only records an address, so the
+// library never knows how much of the buffer we wrote. Emulators have no cache
+// to be stale, which is why this never appeared in Azahar.
+static void flushGeometryToGpu(size_t vboSize, size_t idxSize)
+{
+	GSPGPU_FlushDataCache(vbo_data, vboSize);
+	GSPGPU_FlushDataCache(idx_data, idxSize);
+}
+
 // The GPU state the bench needs: its shader, its vertex layout, its buffer and
 // its texture combiner. Split out of sceneInit because the front end draws with
 // citro2d, and C2D_Prepare() binds all four of those to citro2d's own. Rather
@@ -709,6 +728,7 @@ static bool sceneInit(void)
 	}
 	memcpy(vbo_data, meshVertices(), vboSize);
 	memcpy(idx_data, meshIndices(), idxSize);
+	flushGeometryToGpu(vboSize, idxSize);
 
 	sceneBind();
 	return true;
@@ -744,6 +764,7 @@ static void sceneLoadKit(int level)
 	}
 	memcpy(vbo_data, meshVertices(), vboSize);
 	memcpy(idx_data, meshIndices(), idxSize);
+	flushGeometryToGpu(vboSize, idxSize);
 	sceneBind();
 }
 

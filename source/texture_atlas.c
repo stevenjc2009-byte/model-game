@@ -1,5 +1,6 @@
 #include "texture_atlas.h"
 #include "debug.h"
+#include <3ds.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -162,6 +163,24 @@ bool textureAtlasInit(void)
     }
     swizzle(linear, tiled, ATLAS_SIZE);
     free(linear);
+
+    // swizzle() wrote those 8192 bytes with the CPU, so on real hardware they
+    // are sitting in the ARM11's write-back data cache, not in the FCRAM the
+    // transfer engine reads. 8 KB fits inside the 16 KB L1 outright, so there
+    // is no natural eviction to save it: the copy below can DMA the whole
+    // atlas out of a page the CPU has not written back yet, land whatever was
+    // in that page into VRAM, and every part then MODULATEs its lit colour
+    // against garbage - a black bench with the odd bright patch, exactly what
+    // came back off a console.
+    //
+    // Nothing in the library does this for us. Disassembling libcitro3d.a:
+    // C3D_TexUpload -> C3D_TexLoadImage -> C3D_SyncTextureCopy -> GX_TextureCopy,
+    // and the only GSPGPU_FlushDataCache in texture.o belongs to C3D_TexFlush,
+    // which is for FCRAM-resident textures and is never on this path.
+    //
+    // Emulators have no CPU cache to be stale, which is why this ran clean in
+    // Azahar through every capture pass and still drew nothing on hardware.
+    GSPGPU_FlushDataCache(tiled, ATLAS_SIZE * ATLAS_SIZE * sizeof(u16));
 
     C3D_TexUpload(&atlasTex, tiled);
     linearFree(tiled);
