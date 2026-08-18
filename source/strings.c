@@ -179,39 +179,59 @@ static const char* const englishText[STR_COUNT] =
 // identical to English on purpose - they are what is silkscreened on the
 // hardware, not prose, and translating "SELECT" would make the Controls
 // page describe a button that is not there. Everything else is translated.
+//
+// Accents are allowed on exactly one half of this table, and which half is
+// decided by where the string is drawn, not by how it reads:
+//
+//   citro2d (bottom screen, and the illustrated top page)  -  accents fine.
+//     C2D_TextParse decodes UTF-8 and the system shared font has the whole of
+//     Latin-1, so "découper" comes out as eight glyphs with the accent on the
+//     e.  STR_TITLE .. STR_CANCEL_HINT and every STR_T_ row are drawn this way.
+//
+//   the console (printf, and everything liveRow() puts on the top screen)  -
+//     ASCII only.  consoleInit uses libctru's default font: 128 glyphs, plain
+//     ASCII, and no UTF-8 decoding whatsoever.  "Découpez" printed there comes
+//     out "D|-coupez" - the two bytes of the e-acute are drawn as two separate
+//     box-drawing glyphs, so the accent is unreadable AND every column after it
+//     on that line is pushed one place right, which wrecks the aligned tables
+//     on the manual and controls pages.  This is measured, not assumed: a
+//     forced-French build was booted and the top screen photographed.
+//     STR_C_, STR_CTL_ and STR_KEY_ are all printed, so all three stay ASCII.
+//
+// So: a new string keeps its accents only if nothing ever passes it to printf.
 static const char* const frenchText[STR_COUNT] =
 {
 	[STR_TITLE]        = "MAQUETTE",
-	[STR_TAGLINE]      = "decouper  -  limer  -  assembler",
+	[STR_TAGLINE]      = "découper  -  limer  -  assembler",
 	[STR_PLAY]         = "Jouer",
 	[STR_OPTIONS]      = "Options",
 	[STR_QUIT]         = "Quitter",
 
-	[STR_VOLUME]       = "Volume general",
+	[STR_VOLUME]       = "Volume général",
 	[STR_MINUS]        = "-",
 	[STR_PLUS]         = "+",
 	[STR_CONTROLS]     = "Commandes",
 	[STR_BACK]         = "Retour",
 	[STR_VOL_NOTE]     = "Le niveau de tous les sons du jeu.",
 	[STR_LANGUAGE]     = "Langue",
-	[STR_RESET]        = "Reinit.",
+	[STR_RESET]        = "Réinit.",
 
-	[STR_UPD_LINE1]    = "Verifier",
-	[STR_UPD_LINE2]    = "la mise a jour",
-	[STR_UPD_CHECK]    = "Verifier",
-	[STR_UPD_GET]      = "Telecharger",
-	[STR_UPD_RESTART]  = "Redemarrer",
+	[STR_UPD_LINE1]    = "Vérifier",
+	[STR_UPD_LINE2]    = "la mise à jour",
+	[STR_UPD_CHECK]    = "Vérifier",
+	[STR_UPD_GET]      = "Télécharger",
+	[STR_UPD_RESTART]  = "Redémarrer",
 	[STR_UPD_OFF]      = "Indisponible",
-	[STR_UPD_SHORT_CHECKING]    = "Verification...",
-	[STR_UPD_SHORT_UP_TO_DATE]  = "A jour",
-	[STR_UPD_SHORT_AVAILABLE]   = "Mise a jour dispo",
-	[STR_UPD_SHORT_DOWNLOADING] = "Telechargement...",
+	[STR_UPD_SHORT_CHECKING]    = "Vérification...",
+	[STR_UPD_SHORT_UP_TO_DATE]  = "À jour",
+	[STR_UPD_SHORT_AVAILABLE]   = "Mise à jour dispo",
+	[STR_UPD_SHORT_DOWNLOADING] = "Téléchargement...",
 	[STR_UPD_SHORT_INSTALLING]  = "Installation...",
-	[STR_UPD_SHORT_DONE]        = "Installee",
-	[STR_UPD_SHORT_FAILED]      = "Echec",
-	[STR_UPD_SHORT_READY]       = "Pret",
-	[STR_UPD_INSTALLED_ROW]     = "Installee   %s",
-	[STR_UPD_NEWEST_ROW]        = "Derniere    %s",
+	[STR_UPD_SHORT_DONE]        = "Installée",
+	[STR_UPD_SHORT_FAILED]      = "Échec",
+	[STR_UPD_SHORT_READY]       = "Prêt",
+	[STR_UPD_INSTALLED_ROW]     = "Installée   %s",
+	[STR_UPD_NEWEST_ROW]        = "Dernière    %s",
 
 	[STR_LEVELS_HDR]   = "Choisir un niveau",
 	[STR_PREV]         = "<",
@@ -355,7 +375,9 @@ const char* languageName(gameLanguage lang)
 {
 	switch (lang)
 	{
-		case LANG_FRENCH: return "Francais";
+		// Drawn by citro2d (title.c), never printed to the console, so this one
+		// can carry its cedilla where the STR_C_ rows below cannot.
+		case LANG_FRENCH: return "Français";
 		default:          return "English";
 	}
 }

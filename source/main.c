@@ -2799,9 +2799,24 @@ static void printStaticInfo(bool isNew3DS)
 //
 // Rather than reach for a sync primitive, the repaint is simply not done on the
 // transition frame. It is queued, and performed on the following frames - by
-// which point the menu's transfer cannot still be in flight. Twice, because the
-// cost is two console writes nobody can see, and the failure being fixed is a
-// screen that stays broken for the rest of the session.
+// which point the menu's transfer cannot still be in flight.
+//
+// The obvious alternative is gspWaitForPPF(), which blocks on the transfer
+// engine's completion interrupt. It is not used, and deliberately: that macro is
+// gspWaitForEvent(GSPGPU_EVENT_PPF, false), which waits on the event and only
+// returns early if it happens to be signalled at that moment. If the transfer
+// has already completed and something else consumed the event, it blocks until
+// the NEXT transfer - and on a frame where nothing is queued to the top screen
+// there is no next transfer. Trading a corrupt screen for a hang is not a fix,
+// least of all for a fault that only appears on hardware this bench cannot
+// reproduce.
+//
+// TOP_REPAINT_FRAMES is the margin instead. Four frames is 67 ms at 60 Hz
+// against a 400x240 RGB565 transfer of about 192 KB, which the PPF engine
+// finishes inside a single frame; the extra frames cost console writes nobody
+// can see, and the failure being covered is a screen that stays broken for the
+// rest of the session.
+#define TOP_REPAINT_FRAMES 4
 typedef enum { TOP_REPAINT_NONE = 0, TOP_REPAINT_LEVEL, TOP_REPAINT_TITLE } topRepaintKind;
 static topRepaintKind topRepaintWhat  = TOP_REPAINT_NONE;
 static int            topRepaintFrames = 0;
@@ -2809,7 +2824,7 @@ static int            topRepaintFrames = 0;
 static void queueTopRepaint(topRepaintKind what)
 {
 	topRepaintWhat   = what;
-	topRepaintFrames = 2;
+	topRepaintFrames = TOP_REPAINT_FRAMES;
 }
 
 // Called at the top of the frame, before anything can open the menu again, so

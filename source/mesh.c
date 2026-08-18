@@ -459,7 +459,15 @@ KIT("Submarine",2,P("hull",SH_CYLINDER,AXIS_X,1.5,.6,.6,0,-.3,0,-1,3,0),P("tower
 KIT("Propeller Plane",2,P("hub",SH_CYLINDER,AXIS_X,.25,.1,.25,-.85,-.1,0,-1,3,0),P("fuselage",SH_CYLINDER,AXIS_X,1.5,.4,.4,0,-.15,0,0,0,0),PAIR_Z("wing L","wing R",SH_WEDGE,AXIS_Y,.8,.12,1.4,0,-.15,.55,1,2,0),P("tail",SH_PLATE,AXIS_Z,.45,.15,.65,.65,.0,0,1,2,1),P("rudder",SH_WEDGE,AXIS_Y,.12,.45,.35,.80,.22,0,4,2,1),PAIR_Z("wheel L","wheel R",SH_WHEEL,AXIS_X,.12,.25,.25,-.2,-.65,.3,1,3,1),P("cockpit",SH_DOME,AXIS_Y,.4,.25,.3,.15,.15,0,1,1,1),P("spinner",SH_CONE,AXIS_X,.25,.25,.25,-1.05,-.1,0,0,3,1)),
 // Low side-profile racer: wide front wing, low wedge body, raised cockpit,
 // four corner wheels and a clearly separate rear spoiler.
-KIT("Race Car",2,P("chassis",SH_WEDGE,AXIS_Y,1.85,.38,.72,0,-.48,0,-1,2,0),P("cockpit",SH_BOX,AXIS_Y,.62,.28,.48,.18,-.12,0,0,0,0),P("front wing",SH_PLATE,AXIS_Y,.20,.08,1.08,-1.04,-.67,0,0,0,0),P("rear spoiler",SH_PLATE,AXIS_Y,.20,.15,1.02,.98,.04,0,1,0,1),PAIR_Z("wheel FL","wheel FR",SH_WHEEL,AXIS_X,.18,.38,.38,-.52,-.76,.44,0,3,1),PAIR_Z("wheel RL","wheel RR",SH_WHEEL,AXIS_X,.18,.38,.38,.58,-.76,.44,0,3,1),P("nose",SH_CONE,AXIS_X,.48,.26,.40,-1.10,-.47,0,0,2,1),P("rear diffuser",SH_PLATE,AXIS_Y,.30,.07,.76,.96,-.67,0,0,3,1)),
+//
+// The nose is a blade rather than a cone. Every cone here tapers towards its
+// own +axis and the car faces -X, so a cone at the front could only ever be
+// widest at the tip - and the chassis wedge has thinned to a knife edge by the
+// time it reaches x -0.925, so the cone's point had nothing to bury itself in
+// and hung in the air. A flat blade from the chassis tip out to the front wing
+// is both what an open-wheel nose actually is and something that overlaps real
+// solid at both ends.
+KIT("Race Car",2,P("chassis",SH_WEDGE,AXIS_Y,1.85,.38,.72,0,-.48,0,-1,2,0),P("cockpit",SH_BOX,AXIS_Y,.62,.28,.48,.18,-.12,0,0,0,0),P("front wing",SH_PLATE,AXIS_Y,.20,.08,1.08,-1.04,-.67,0,0,0,0),P("rear spoiler",SH_PLATE,AXIS_Y,.20,.15,1.02,.98,.04,0,1,0,1),PAIR_Z("wheel FL","wheel FR",SH_WHEEL,AXIS_X,.18,.38,.38,-.52,-.76,.44,0,3,1),PAIR_Z("wheel RL","wheel RR",SH_WHEEL,AXIS_X,.18,.38,.38,.58,-.76,.44,0,3,1),P("nose",SH_PLATE,AXIS_Y,.45,.14,.30,-1.00,-.62,0,0,2,1),P("rear diffuser",SH_PLATE,AXIS_Y,.30,.07,.76,.96,-.67,0,0,3,1)),
 KIT("Excavator",2,P("track base",SH_BOX,AXIS_Y,1.2,.35,.7,0,-.65,0,-1,3,0),P("cab",SH_BOX,AXIS_Y,.55,.55,.55,-.2,-.1,0,0,2,0),P("boom",SH_ROD,AXIS_X,1.0,.15,.15,.55,.15,0,1,3,0),P("arm",SH_ROD,AXIS_Y,.15,.75,.15,.95,-.25,0,2,3,1),P("bucket",SH_WEDGE,AXIS_X,.45,.35,.5,1.1,-.65,0,3,2,1),PAIR_Z("track L","track R",SH_BOX,AXIS_Y,1.1,.3,.18,0,-.85,.35,0,3,1),P("hydraulic",SH_ROD,AXIS_X,.7,.07,.07,.55,-.05,.18,2,0,1),P("weight",SH_BOX,AXIS_Y,.4,.4,.5,-.70,-.35,0,0,3,1),P("pivot",SH_CYLINDER,AXIS_Y,.22,.15,.22,.0,-.28,0,0,0,1)),
 KIT("Dragon",2,P("body",SH_CYLINDER,AXIS_X,1.25,.55,.55,0,-.25,0,-1,1,0),P("head",SH_WEDGE,AXIS_X,.55,.45,.45,-.75,.0,0,0,1,0),P("tail",SH_CONE,AXIS_X,.75,.3,.3,.85,-.3,0,0,1,0),PAIR_Z("wing L","wing R",SH_WEDGE,AXIS_Y,.75,.15,1.1,0,.15,.58,0,3,1),PAIR_Z("leg FL","leg FR",SH_ROD,AXIS_Y,.16,.55,.16,-.35,-.68,.24,0,1,1),PAIR_Z("leg RL","leg RR",SH_ROD,AXIS_Y,.16,.55,.16,.35,-.68,.24,0,1,1),P("horn",SH_CONE,AXIS_Y,.14,.3,.14,-.85,.35,0,1,3,1)),
 KIT("Castle Tower",3,P("base",SH_CYLINDER,AXIS_Y,.9,.35,.9,0,-.75,0,-1,0,0),P("ring",SH_CYLINDER,AXIS_Y,.75,.35,.75,0,-.42,0,0,0,0),P("tower",SH_CYLINDER,AXIS_Y,.62,.75,.62,0,.1,0,1,0,0),P("battlement",SH_TUBE,AXIS_Y,.9,.18,.9,0,.58,0,2,3,1),P("door",SH_PLATE,AXIS_Z,.25,.42,.05,0,-.55,.45,0,2,1),P("window",SH_PLATE,AXIS_Z,.16,.2,.05,.25,.12,.32,2,1,1),P("mast",SH_ROD,AXIS_Y,.07,.65,.07,0,1.0,0,3,3,1),P("flag",SH_PLATE,AXIS_Z,.4,.22,.04,.2,1.2,0,6,2,2),P("roof",SH_CONE,AXIS_Y,.7,.35,.7,0,.95,0,3,2,2),P("trim",SH_PLATE,AXIS_Y,.7,.05,.7,0,-.22,0,1,3,2)),
@@ -508,12 +516,27 @@ KIT("Fire Engine",2, P("cab",SH_BOX,AXIS_Y,.65,.6,.55,-.35,-.1,0,-1,2,0),P("body
 
 // Late kits: compact, multi-runner authored silhouettes. Their records remain
 // explicit even where a repeated limb/wheel uses the same dimensions.
+//
+// Three joins here were authored against the box a part occupies rather than
+// against the solid it actually draws inside it, which is why they looked
+// unattached on the bench:
+//
+//   Pirate bow    - was an AXIS_X wedge, so its full face was at the front and
+//                   it tapered backwards to a line 0.38 above the hull's own
+//                   tapering tip. It is now an AXIS_Y wedge sharing the hull's
+//                   base plane exactly, a smaller prow of the same shape.
+//   Loco coupler  - the rod keeps only min(size[1],size[2]) as its diameter, so
+//                   the drawn bar was 0.08 across in a 0.32 box and met the
+//                   tender only at one bottom corner. Moved up into the body.
+//   Heli skids    - same rule: 0.50 of authored height was thrown away and the
+//                   drawn 0.10 bar hung clear under the cabin. Re-authored at
+//                   0.16 square so the box and the bar are the same object.
 static const kitDef kitDefsLate[6] = {
-	KIT("Pirate Ship",3,P("hull",SH_WEDGE,AXIS_Y,1.6,.5,.6,0,-.55,0,-1,2,0),P("deck",SH_PLATE,AXIS_Y,1.25,.08,.5,0,-.28,0,0,2,0),P("mast front",SH_ROD,AXIS_Y,.1,1.3,.1,-.35,.38,0,1,3,1),P("mast rear",SH_ROD,AXIS_Y,.1,1.15,.1,.38,.3,0,1,3,1),P("sail front",SH_WEDGE,AXIS_Y,.55,.7,.05,-.1,.55,0,2,0,1),P("sail rear",SH_WEDGE,AXIS_Y,.5,.62,.05,.62,.48,0,3,0,1),P("bow",SH_WEDGE,AXIS_X,.4,.25,.4,-.9,-.4,0,0,2,2),P("rudder",SH_PLATE,AXIS_Z,.2,.4,.05,.82,-.45,0,0,2,2),P("cannon",SH_ROD,AXIS_X,.42,.12,.12,.1,-.22,.22,1,3,2),P("anchor",SH_ROD,AXIS_Y,.12,.35,.12,-.65,-.7,0,0,3,2)),
-	KIT("Steam Locomotive",3,P("boiler",SH_CYLINDER,AXIS_X,1.25,.55,.55,0,-.25,0,-1,3,0),P("cab",SH_BOX,AXIS_Y,.55,.65,.6,.55,.0,0,0,2,0),P("chimney",SH_TUBE,AXIS_Y,.3,.55,.3,-.38,.28,0,0,3,0),PAIR_Z("wheel FL","wheel FR",SH_WHEEL,AXIS_X,.16,.34,.34,-.45,-.75,.35,0,2,1),PAIR_Z("wheel RL","wheel RR",SH_WHEEL,AXIS_X,.16,.34,.34,.3,-.75,.35,0,2,1),P("tender",SH_BOX,AXIS_Y,.6,.5,.55,1.0,-.35,0,1,3,2),P("lamp",SH_CYLINDER,AXIS_Z,.14,.08,.14,-.72,-.2,.28,0,1,2),P("coupler",SH_ROD,AXIS_X,.32,.08,.08,1.42,-.6,0,7,3,2)),
+	KIT("Pirate Ship",3,P("hull",SH_WEDGE,AXIS_Y,1.6,.5,.6,0,-.55,0,-1,2,0),P("deck",SH_PLATE,AXIS_Y,1.25,.08,.5,0,-.28,0,0,2,0),P("mast front",SH_ROD,AXIS_Y,.1,1.3,.1,-.35,.38,0,1,3,1),P("mast rear",SH_ROD,AXIS_Y,.1,1.15,.1,.38,.3,0,1,3,1),P("sail front",SH_WEDGE,AXIS_Y,.55,.7,.05,-.1,.55,0,2,0,1),P("sail rear",SH_WEDGE,AXIS_Y,.5,.62,.05,.62,.48,0,3,0,1),P("bow",SH_WEDGE,AXIS_Y,.5,.35,.45,-.85,-.625,0,0,2,2),P("rudder",SH_PLATE,AXIS_Z,.2,.4,.05,.82,-.45,0,0,2,2),P("cannon",SH_ROD,AXIS_X,.42,.12,.12,.1,-.22,.22,1,3,2),P("anchor",SH_ROD,AXIS_Y,.12,.35,.12,-.65,-.7,0,0,3,2)),
+	KIT("Steam Locomotive",3,P("boiler",SH_CYLINDER,AXIS_X,1.25,.55,.55,0,-.25,0,-1,3,0),P("cab",SH_BOX,AXIS_Y,.55,.65,.6,.55,.0,0,0,2,0),P("chimney",SH_TUBE,AXIS_Y,.3,.55,.3,-.38,.28,0,0,3,0),PAIR_Z("wheel FL","wheel FR",SH_WHEEL,AXIS_X,.16,.34,.34,-.45,-.75,.35,0,2,1),PAIR_Z("wheel RL","wheel RR",SH_WHEEL,AXIS_X,.16,.34,.34,.3,-.75,.35,0,2,1),P("tender",SH_BOX,AXIS_Y,.6,.5,.55,1.0,-.35,0,1,3,2),P("lamp",SH_CYLINDER,AXIS_Z,.14,.08,.14,-.72,-.2,.28,0,1,2),P("coupler",SH_ROD,AXIS_X,.32,.08,.08,1.35,-.42,0,7,3,2)),
 	KIT("Spacecraft",4,P("core",SH_CYLINDER,AXIS_X,1.3,.5,.5,0,-.15,0,-1,0,0),P("nose",SH_CONE,AXIS_X,.5,.5,.5,-.85,-.15,0,0,0,0),PAIR_Z("pod L","pod R",SH_CYLINDER,AXIS_X,.65,.3,.3,.05,-.18,.5,0,1,1),PAIR_Z("wing L","wing R",SH_WEDGE,AXIS_Z,.7,.1,.95,.18,-.15,.72,0,2,1),PAIR_Z("engine L","engine R",SH_CONE,AXIS_X,.3,.28,.3,.78,-.18,.3,0,3,2),P("canopy",SH_DOME,AXIS_Y,.42,.25,.3,-.15,.2,0,0,1,3),P("antenna",SH_ROD,AXIS_Y,.06,.45,.06,.2,.45,0,8,3,3)),
 	KIT("Dinosaur",4,P("body",SH_CYLINDER,AXIS_X,1.3,.55,.55,0,-.3,0,-1,1,0),P("head",SH_WEDGE,AXIS_X,.55,.45,.45,-.8,-.05,0,0,1,0),P("tail",SH_CONE,AXIS_X,.85,.3,.3,.9,-.35,0,0,1,1),PAIR_Z("leg FL","leg FR",SH_ROD,AXIS_Y,.18,.65,.18,-.38,-.75,.28,0,3,1),P("leg RL",SH_ROD,AXIS_Y,.18,.65,.18,.35,-.75,.28,0,3,2),P("leg RR",SH_ROD,AXIS_Y,.18,.65,.18,.35,-.75,-.28,0,3,2),P("plate L",SH_WEDGE,AXIS_Y,.25,.35,.12,-.1,.25,.22,0,2,2),P("plate R",SH_WEDGE,AXIS_Y,.25,.35,.12,.25,.25,-.22,0,2,3),P("horn",SH_CONE,AXIS_X,.16,.2,.16,-1.05,.15,0,1,3,3)),
-	KIT("Rescue Helicopter",4,P("cabin",SH_BOX,AXIS_Y,.8,.5,.55,-.25,-.15,0,-1,2,0),P("nose",SH_WEDGE,AXIS_X,.45,.35,.45,-.75,-.18,0,0,2,0),P("tail boom",SH_ROD,AXIS_X,1.25,.16,.16,.65,-.1,0,0,1,1),P("tail rotor",SH_CYLINDER,AXIS_X,.32,.06,.32,1.25,-.08,0,2,3,1),PAIR_Z("skid L","skid R",SH_ROD,AXIS_X,.9,.50,.1,-.05,-.55,.24,0,3,2),P("door",SH_PLATE,AXIS_Z,.35,.35,.04,-.1,-.1,.3,0,1,2),P("rotor hub",SH_CYLINDER,AXIS_Y,.2,.12,.2,-.05,.35,0,0,3,3),P("rotor blade",SH_PLATE,AXIS_X,1.5,.05,.12,-.05,.45,0,7,3,3),P("winch",SH_ROD,AXIS_Y,.08,.35,.08,-.35,-.10,.28,0,1,3)),
+	KIT("Rescue Helicopter",4,P("cabin",SH_BOX,AXIS_Y,.8,.5,.55,-.25,-.15,0,-1,2,0),P("nose",SH_WEDGE,AXIS_X,.45,.35,.45,-.75,-.18,0,0,2,0),P("tail boom",SH_ROD,AXIS_X,1.25,.16,.16,.65,-.1,0,0,1,1),P("tail rotor",SH_CYLINDER,AXIS_X,.32,.06,.32,1.25,-.08,0,2,3,1),PAIR_Z("skid L","skid R",SH_ROD,AXIS_X,.9,.16,.16,-.05,-.41,.24,0,3,2),P("door",SH_PLATE,AXIS_Z,.35,.35,.04,-.1,-.1,.3,0,1,2),P("rotor hub",SH_CYLINDER,AXIS_Y,.2,.12,.2,-.05,.35,0,0,3,3),P("rotor blade",SH_PLATE,AXIS_X,1.5,.05,.12,-.05,.45,0,7,3,3),P("winch",SH_ROD,AXIS_Y,.08,.35,.08,-.35,-.10,.28,0,1,3)),
 	KIT("Large Mech",4,P("torso",SH_BOX,AXIS_Y,.8,.7,.4,0,.0,0,-1,1,0),P("head",SH_BOX,AXIS_Y,.45,.4,.35,0,.58,0,0,0,0),PAIR_X("shoulder L","shoulder R",SH_WEDGE,AXIS_X,.45,.3,.35,.55,.22,0,0,2,1),P("arm L",SH_ROD,AXIS_Y,.18,.7,.18,-.62,-.25,0,2,1,2),P("arm R",SH_ROD,AXIS_Y,.18,.7,.18,.62,-.25,0,3,1,2),PAIR_X("leg L","leg R",SH_ROD,AXIS_Y,.25,.85,.25,.25,-.82,0,0,3,3),P("backpack",SH_BOX,AXIS_Y,.55,.5,.2,0,.0,-.32,0,1,3),P("shield",SH_CURVE,AXIS_Z,.45,.7,.08,-.95,-.18,.05,4,2,3))
 };
 
@@ -1608,6 +1631,134 @@ static bool strictAabbOverlap(const float amin[3], const float amax[3], const fl
 	return true;
 }
 
+// A world point turned back into one part's own local frame - the inverse of
+// axisMap, and the only way to ask a rotated primitive whether it contains a
+// point without rebuilding its triangles.
+static void axisUnmap(partAxis axis, const float c[3], const float w[3], float out[3])
+{
+	const float dx = w[0]-c[0], dy = w[1]-c[1], dz = w[2]-c[2];
+	if (axis == AXIS_X)      { out[0] = -dy; out[1] =  dx; out[2] =  dz; }
+	else if (axis == AXIS_Z) { out[0] =  dx; out[1] =  dz; out[2] = -dy; }
+	else                     { out[0] =  dx; out[1] =  dy; out[2] =  dz; }
+}
+
+// Is this world point inside the solid the part actually draws?
+//
+// Not inside its authored box - inside the solid. The two are the same thing
+// for a box and a plate and nothing else: a wedge tapers to a zero-height edge,
+// a cone tapers to a point, and the round emitters take a single radius from
+// min(size) and throw the larger cross size away. Every part that has ever
+// looked unattached on this bench was a part joined where its parent's box was
+// still there and its parent's solid was not.
+//
+// Shapes whose emitter reads its dimensions through axisExtents are authored in
+// world sizes, so they are unpermuted here to match. The wedge is authored in
+// local sizes, because addWedgeAxis takes size[] straight as its local box.
+// Anything not modelled exactly falls through to its box, which can only ever
+// report a join that is not there - never hide one that is.
+static bool solidContains(const kitPartDef* p, const float c[3], const float w[3])
+{
+	const float* s = p->size;
+	float l[3];
+
+	switch (p->shape)
+	{
+	case SH_CYLINDER: case SH_ROD: case SH_CONE: case SH_WHEEL:
+	{
+		const float r = p->axis == AXIS_Y ? fminf(s[0], s[2])*.5f :
+			(p->axis == AXIS_X ? fminf(s[1], s[2])*.5f : fminf(s[0], s[1])*.5f);
+		const float h = p->axis == AXIS_Y ? s[1] : (p->axis == AXIS_X ? s[0] : s[2]);
+		axisUnmap(p->axis, c, w, l);
+		if (fabsf(l[1]) > h*.5f) return false;
+		// The cone's radius runs from r at its base to nothing at the apex.
+		const float rr = p->shape == SH_CONE ? r*(h*.5f - l[1])/h : r;
+		return l[0]*l[0] + l[2]*l[2] <= rr*rr;
+	}
+	case SH_WEDGE:
+	{
+		axisUnmap(p->axis, c, w, l);
+		if (fabsf(l[1]) > s[1]*.5f || fabsf(l[2]) > s[2]*.5f) return false;
+		return fabsf(l[0]) <= s[0]*.5f*(s[1]*.5f - l[1])/s[1];
+	}
+	case SH_DOME: case SH_TUBE: case SH_BELL:
+	{
+		float e[3]; axisExtents(p->axis, s, e);
+		const float r = fminf(e[0], e[2])*.5f, h = e[1];
+		axisUnmap(p->axis, c, w, l);
+		if (fabsf(l[1]) > h*.5f) return false;
+		const float d2 = l[0]*l[0] + l[2]*l[2];
+		if (p->shape == SH_TUBE) return d2 <= r*r && d2 >= r*.62f*r*.62f;
+		if (p->shape == SH_BELL) return d2 <= r*r;
+		{
+			const float t = (l[1] + h*.5f)/h;   // 0 at the flat underside, 1 at the apex
+			return d2 <= r*r*(1.0f - t*t);
+		}
+	}
+	default:
+		// Box, plate, star, grill, blade, curved panel: bounded by the box they
+		// were authored as, which is the honest answer for the first two and a
+		// safe over-estimate for the rest.
+		for (int a = 0; a < 3; a++) if (fabsf(w[a]-c[a]) > s[a]*.5f) return false;
+		return true;
+	}
+}
+
+// The exact world box a part's solid occupies - the box the grid below samples.
+//
+// This used to take max(size, axisExtents(size)) per axis as a safe superset,
+// and the safety cost it its accuracy: the helicopter rotor blade is a plate
+// 0.05 thick on an AXIS_X record, so the superset widened that axis to 1.5 and a
+// fourteen-step grid stepped 0.107 at a time straight over a 0.05 solid, finding
+// nothing inside the part at all. Only the wedge authors its size in local
+// space; every other shape here is already world-aligned, because the round
+// emitters and axisExtents both pre-compensate for the rotation.
+static void solidBounds(const kitPartDef* p, const float c[3], float lo[3], float hi[3])
+{
+	float e[3];
+	if (p->shape == SH_WEDGE) axisExtents(p->axis, p->size, e);
+	else                      { e[0]=p->size[0]; e[1]=p->size[1]; e[2]=p->size[2]; }
+	for (int a = 0; a < 3; a++) { lo[a] = c[a]-e[a]*.5f; hi[a] = c[a]+e[a]*.5f; }
+}
+
+// How many of a part's own grid samples land inside another part.
+//
+// The grid is laid over a's exact box and only the points that are really inside
+// a's solid are offered to b, so a taper or a bore on either side is honoured
+// rather than assumed away. An AABB test cannot answer this: the two boxes of a
+// cone tip meeting a knife-edged wedge overlap perfectly while the drawn solids
+// miss each other by a wide margin, which is exactly how four parts came to be
+// floating with the box audit reporting nothing.
+#define JOIN_GRID 14
+static int solidJoinSamples(const kitPartDef* a, const float ca[3],
+                            const kitPartDef* b, const float cb[3])
+{
+	float alo[3],ahi[3],blo[3],bhi[3];
+	solidBounds(a,ca,alo,ahi);
+	solidBounds(b,cb,blo,bhi);
+	// Boxes that do not even touch cannot have solids that do, and skipping them
+	// here keeps twenty levels of ten parts against nine neighbours affordable.
+	for (int a2=0;a2<3;a2++) if (alo[a2] > bhi[a2] || blo[a2] > ahi[a2]) return 0;
+
+	int shared = 0;
+	for (int i=0;i<JOIN_GRID;i++) for (int j=0;j<JOIN_GRID;j++) for (int k=0;k<JOIN_GRID;k++) {
+		const float w[3] = {
+			alo[0] + (i+.5f)*(ahi[0]-alo[0])/JOIN_GRID,
+			alo[1] + (j+.5f)*(ahi[1]-alo[1])/JOIN_GRID,
+			alo[2] + (k+.5f)*(ahi[2]-alo[2])/JOIN_GRID };
+		if (solidContains(a,ca,w) && solidContains(b,cb,w)) shared++;
+	}
+	return shared;
+}
+
+// A part counts as attached when at least one of its own grid samples lands
+// inside another part. One sample out of a 14x14x14 grid is the floor because
+// the question being asked is binary - is this thing sitting in mid-air - and
+// any real join buries far more than one cell. Asking for a percentage instead
+// would be asking how deep the join is, which is a different question and one
+// the kits have no agreed answer to: a wheel meets a body across a sliver and a
+// fin is half swallowed, and both are correct.
+#define JOIN_MIN_SAMPLES 1
+
 bool meshCollisionAuditAllKits(void)
 {
 	bool all=true;
@@ -1635,10 +1786,41 @@ bool meshCollisionAuditAllKits(void)
 		}
 		for(int i=0;i<socketCount;i++) for(int j=0;j<i;j++)
 			if(strictAabbOverlap(sockets[i].min,sockets[i].max,sockets[j].min,sockets[j].max)) assembledHits++;
-		bool pass=looseHits==0 && assembledHits==0;
+		// ASM above is reported, not judged. An assembled model is meant to
+		// interpenetrate - every real join shows up in that count - so failing on
+		// it made the audit unpassable by construction and therefore meaningless.
+		// What is worth failing on is the opposite question, asked of the solids
+		// rather than the boxes: is every part touching something?
+		//
+		// Touching ANYTHING, not touching its parent. The parent field is a build
+		// order dependency and not a statement about geometry - the castle tower's
+		// mast is authored off the battlement and physically stands buried in the
+		// roof cone a quarter of a unit away from it, and the first version of this
+		// audit failed it for that. Twelve of the twenty levels failed that way,
+		// none of them for anything a player could see. A part that shares material
+		// with any other part in the kit is attached to the model; a part that
+		// shares material with none of them is the thing that looks wrong.
+		const kitDef* def = level <= 8 ? &kitDefs[level-1] :
+			(level <= 14 ? &kitDefsMid[level-9] : &kitDefsLate[level-15]);
+		int floatHits=0;
+		for (int i=0;i<PART_SPEC_COUNT;i++) {
+			int best=0, bestJ=-1;
+			for (int j=0;j<PART_SPEC_COUNT && best<JOIN_MIN_SAMPLES;j++) {
+				if (j==i) continue;
+				const int n = solidJoinSamples(&def->parts[i], activeTarget[i],
+				                               &def->parts[j], activeTarget[j]);
+				if (n > best) { best=n; bestJ=j; }
+			}
+			if (best >= JOIN_MIN_SAMPLES) continue;
+			(void)bestJ;
+			printf("  ! %-12.12s touches nothing\n", def->parts[i].name);
+			floatHits++;
+		}
+		bool pass=looseHits==0 && floatHits==0;
 		// Kept deliberately short: the 3DS console is 50 columns wide and this
-		// audit must leave all twenty cut/assembly counts readable on screen.
-		printf("L%02d %-18.18s CUT=%02d ASM=%02d %s\n",level,activeKitName,looseHits,assembledHits,pass?"OK":"FAIL");
+		// audit must leave all twenty rows readable on screen.
+		printf("L%02d %-14.14s CUT=%02d ASM=%02d JOIN=%02d %s\n",
+			level,activeKitName,looseHits,assembledHits,floatHits,pass?"OK":"FAIL");
 		if(!pass) all=false;
 	}
 	printf("COLLISION AUDIT %s\n",all?"20/20 OK":"FAIL");
