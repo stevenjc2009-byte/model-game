@@ -497,6 +497,11 @@ static void runCeilingAudit(void);
 // own VBO-allocation failure reuses it and runs long before that point in the
 // file.
 static void showConsoleAndPause(void);
+// Which manual page is open, defined with the rest of the manual paging a
+// thousand lines down. The two top-screen drawers up here both put that number
+// on the screen now - it is the step bar's whole content - so it is declared
+// here rather than moving the paging code above them.
+static int manualPageIndex(void);
 
 // Level 1 replaces the text console with this white beginner sheet. It is a
 // screen target in its own right; later levels continue using the console.
@@ -505,14 +510,16 @@ static C3D_RenderTarget* beginnerTarget;
 // sceneExit can take them down alongside the rest of the scene's resources.
 static C3D_RenderTarget* benchTarget;
 static C2D_TextBuf beginnerText;
-// The bench progress tag's own text buffer, deliberately not beginnerText.
+// The bench's own text buffer, deliberately not beginnerText. One caller left
+// now that the progress tag has gone - the Undo button's label - but the reason
+// for the separation is unchanged.
 //
 // beginnerText is cleared once a frame by whatever draws the top screen, and on
 // the frames where nothing does - the audit builds, the capture builds, any
-// path where beginnerTopShowing() is false - it is never cleared at all. A tag
-// parsing two lines a frame into a buffer nobody empties fills 4096 glyphs in
-// under a minute and then silently stops rendering. Its own 128-glyph buffer,
-// cleared by the tag itself, cannot be starved by a screen it does not draw.
+// path where beginnerTopShowing() is false - it is never cleared at all. Text
+// parsed into a buffer nobody empties fills 4096 glyphs and then silently stops
+// rendering. Its own 128-glyph buffer, cleared on the bench's own frame, cannot
+// be starved by a screen it does not draw.
 static C2D_TextBuf benchText;
 
 #define PAPER_WHITE C2D_Color32(0xFB, 0xFA, 0xF6, 0xFF)
@@ -529,16 +536,13 @@ static void beginnerLabel(const char* label, float x, float y, float scale, u32 
 	C2D_DrawText(&text, C2D_WithColor, x, y, 0.5f, scale, scale, colour);
 }
 
-// Same again for the bench. Two lines rather than one shared helper with a
-// buffer argument, because every one of beginnerLabel's forty-odd callers would
-// have had to grow a parameter to say the thing they all already say.
-static void benchLabel(const char* label, float x, float y, float scale, u32 colour)
-{
-	C2D_Text text;
-	C2D_TextParse(&text, benchText, label);
-	C2D_TextOptimize(&text);
-	C2D_DrawText(&text, C2D_WithColor, x, y, 0.5f, scale, scale, colour);
-}
+// There used to be a benchLabel here, the same three lines against benchText,
+// for the progress tag's two lines of text. The tag is gone and the only thing
+// still drawing on the bench is the Undo button, which measures its label
+// before it places it - it needs C2D_TextGetDimensions between the parse and
+// the draw, which is exactly the step a one-call helper folds away. So the
+// helper had one caller that could not use it, and -Werror=unused-function
+// said so.
 
 static int beginnerAction(void)
 {
@@ -606,6 +610,13 @@ static void drawBeginnerSheet(void)
 	                 ? partStates[selectedPart].filed : 0.0f;
 	info.runnerNow   = currentRunner + 1;
 	info.runnerTotal = meshKitRunnerCount();
+	// The build's own position, for the bar across the top. manualPageIndex and
+	// not manualNextStep: if the player has paged back to look at something they
+	// already fitted, the bar follows them there rather than insisting on where
+	// the build has got to. It returns -1 when there is no kit, which the bar
+	// draws as an empty track.
+	info.stepNow     = manualPageIndex() + 1;
+	info.stepTotal   = meshSocketCount();
 	info.kitName     = meshKitName();
 
 	beginnerFrameBegin();
@@ -622,6 +633,13 @@ static void drawBeginnerSheet(void)
 static void drawTopIdleCard(void)
 {
 	beginnerFrameBegin();
+
+	// The step bar rides on this page too. It is the only readout of how far the
+	// build has got once the sheet is off, and switching the tutorial off is
+	// meant to stop the game explaining itself - not to stop it telling you
+	// where you are. Same call the sheet makes, not a copy of it, so the two
+	// cannot drift.
+	tutorialDrawStepBar(beginnerText, manualPageIndex() + 1, meshSocketCount());
 
 	// A length of runner across the middle: two rails, three crossbars and four
 	// parts still on it. Same shapes the front end is built from.
@@ -647,7 +665,12 @@ static void drawTopIdleCard(void)
 		C2D_TextOptimize(&name);
 		float w = 0.0f, h = 0.0f;
 		C2D_TextGetDimensions(&name, 0.86f, 0.86f, &w, &h);
-		C2D_DrawText(&name, C2D_WithColor, (400.0f - w) * 0.5f, 36.0f, 0.5f, 0.86f, 0.86f, PAPER_INK);
+		// 52 rather than the 36 this sat at before the step bar arrived. The
+		// bar's "STEP n/N" label is drawn at y 24 at 0.42 scale, which puts its
+		// baseline a shade under 37 - the name's old top edge. Dropped far
+		// enough to clear it outright rather than by a pixel, and still 18 clear
+		// of the runner motif that starts at 96.
+		C2D_DrawText(&name, C2D_WithColor, (400.0f - w) * 0.5f, 52.0f, 0.5f, 0.86f, 0.86f, PAPER_INK);
 	}
 	C2D_Flush();
 }
@@ -1437,64 +1460,35 @@ static void manualUpdate(void)
 	if (manualPage >= steps) manualPage = steps - 1;
 }
 
-// The progress tag, in the top-left corner of the bench.
+// The bench progress tag is gone, and this is where it was.
 //
-// Everything the game said about how far along a build was, it said on the top
-// screen: the manual page, the tutorial sheet, the part counts. The player's
-// eyes are on the bottom screen, because that is where the stylus is. So the one
-// question that comes up over and over - how much of this is left - could only
-// be answered by looking away from the thing being worked on.
+// It was a 196x36 paper panel in the top-left of the bench, two lines: "STEP
+// n/N" and the snip/file/fit counts. The reasoning for putting it there was
+// that the player's eyes are on the bottom screen because that is where the
+// stylus is, so the one question that comes up over and over - how much of this
+// is left - should be answerable without looking away.
 //
-// Two lines, because they answer two different questions. The step line is
-// position: which page of the manual is open, out of how many. The counts line
-// is amount: how much snipping, filing and fitting is done, each against its own
-// total. A single percentage would have merged them and told the player neither.
+// The reasoning was right about the question and wrong about the price. 196x36
+// is a fifth of the width of the only screen the model is ever drawn on, held
+// permanently, to carry two lines of text that do not change from one second to
+// the next. On a zoomed-in kit it was a white rectangle sitting on the model.
 //
-// Top-left rather than anywhere else. The kit box opens centre-left, the runner
-// lies across the middle, the stand sits centre-right and the hint dot lands on
-// whichever of those is next - the corner above the mat is the one part of this
-// screen nothing else ever claims.
-#define BENCH_HUD_X   6.0f
-#define BENCH_HUD_Y   6.0f
-#define BENCH_HUD_W 196.0f
-#define BENCH_HUD_H  36.0f
+// So the readout moved up to the top screen, where there was already a row of
+// four pips counting the four tutorial pages - the least useful thing that row
+// could have been counting. It counts build steps now, one bar each, and the
+// bar carries the "STEP n/N" line the panel used to. See tutorialDrawStepBar in
+// tutorial_art.c, drawn by both the tutorial sheet and the plain card.
+//
+// The counts line was not moved. The tutorial sheet has been showing snipped,
+// filed and fitted against their totals since it was drawn - it is the tag on
+// the right of pages 2, 3 and 4 - so the panel's second line was a second copy
+// of a figure already on the other screen.
+//
+// STR_C_BENCH_COUNTS is orphaned by this and left in strings.c rather than
+// deleted: the string tables are indexed by a designated-initialiser enum, so
+// an unused entry costs its own bytes and nothing else, and a translated string
+// is worth more sitting unused than it is worth removing.
 
-static void drawBenchHud(void)
-{
-	const int parts = meshPartCount();
-	const int steps = meshSocketCount();
-	if (parts <= 0 || steps <= 0) return;
-
-	// The same paper-and-blue-rule the pause menu and the tutorial sheet use, so
-	// the tag reads as another page off the same instruction booklet rather than
-	// as a game overlay stuck on top of the desk.
-	C2D_DrawRectSolid(BENCH_HUD_X, BENCH_HUD_Y, 0.0f, BENCH_HUD_W, BENCH_HUD_H, PAPER_WHITE);
-	C2D_DrawRectSolid(BENCH_HUD_X, BENCH_HUD_Y, 0.0f, BENCH_HUD_W, 3.0f, PAPER_BLUE);
-
-	char line[64];
-
-	// manualPageIndex is the page the manual is actually showing, not
-	// manualNextStep - if the player has paged back to look at something they
-	// already fitted, the tag follows them there rather than insisting on where
-	// the build has got to. The counts line still says that.
-	snprintf(line, sizeof(line), STR(STR_C_BENCH_STEP), manualPageIndex() + 1, steps);
-	benchLabel(line, BENCH_HUD_X + 7.0f, BENCH_HUD_Y + 5.0f, 0.42f, PAPER_INK);
-
-	// Snipping and filing are per part; fitting is per socket. They are the same
-	// number on every kit shipped so far, but they are not the same question, and
-	// pairing each count with its own total means a kit that ever seats a part in
-	// two places will read correctly without this line being revisited.
-	snprintf(line, sizeof(line), STR(STR_C_BENCH_COUNTS),
-		cutCount, parts, filedCount, parts, builtCount, steps);
-	// 0.36 and not smaller. The first pass set this at 0.28 to be sure the
-	// longest form of the line - every count in double digits - could not run off
-	// the tag, and it measured out at 62% of the panel width with the whole kit
-	// built, so there was more than a third of the strip going spare and the
-	// digits were mush. 0.36 uses about 80% of it and is the same size as the
-	// pause menu's own value text, which is the smallest type in the game anybody
-	// has had to read at arm's length.
-	benchLabel(line, BENCH_HUD_X + 7.0f, BENCH_HUD_Y + 20.0f, 0.36f, PAPER_BLUE);
-}
 
 // The Undo button, mirrored across the bench from the progress tag.
 //
@@ -1518,7 +1512,22 @@ static void drawUndoButton(void)
 {
 	const u32 ink = undoValid ? PAPER_BLUE : PAPER_LINE;
 
-	C2D_DrawRectSolid(BENCH_UNDO_X, BENCH_UNDO_Y, 0.0f, BENCH_UNDO_W, BENCH_UNDO_H, PAPER_WHITE);
+	// Translucent fill rather than solid PAPER_WHITE: zoomed in on a tall kit
+	// the model's silhouette rises up behind this corner of the bottom screen,
+	// and a solid panel here punched a white hole straight through it. 0xD1
+	// alpha (~82%) keeps the button legible while letting the model read
+	// through the fill; the rule below and the label drawn further down stay
+	// at full alpha, so nothing about reading the button gets any harder -
+	// only the empty plastic behind it changes.
+	//
+	// Kept anchored here rather than moved out of the way: this is where Undo
+	// is expected to be, and a control that relocates itself depending on
+	// what model happens to be behind it is harder to find than one you can
+	// see through. The alternative considered and rejected was hiding the
+	// button past a zoom threshold - that takes Undo away exactly when a
+	// close-up view makes an accidental tap likeliest to need it.
+	C2D_DrawRectSolid(BENCH_UNDO_X, BENCH_UNDO_Y, 0.0f, BENCH_UNDO_W, BENCH_UNDO_H,
+		C2D_Color32(0xFB, 0xFA, 0xF6, 0xD1));
 	C2D_DrawRectSolid(BENCH_UNDO_X, BENCH_UNDO_Y, 0.0f, BENCH_UNDO_W, 3.0f, ink);
 
 	// Centred by measurement rather than by a hardcoded inset: the French label
@@ -3400,6 +3409,35 @@ typedef enum { TOP_REPAINT_NONE = 0, TOP_REPAINT_LEVEL, TOP_REPAINT_TITLE } topR
 static topRepaintKind topRepaintWhat  = TOP_REPAINT_NONE;
 static int            topRepaintFrames = 0;
 
+// Whether the level select's 3D preview drew the top screen on the frame just
+// gone. Set once, at the end of gameRenderFrame, next to the decision about who
+// owned that screen this frame - so the two answers cannot disagree.
+//
+// It exists because "the preview has stopped owning the top screen" is not a
+// state anything else can report after the fact: titleInput moves the page off
+// PAGE_LEVELS inside the same frame that has to defer, so by the time the
+// console would print, titlePreviewActive() already says false and there is
+// nothing left to distinguish the transition frame from the fifty after it.
+static bool topPreviewOwnedLastFrame = false;
+
+// Whether the front-end console must hold off writing the top screen this
+// frame because the level-select preview has just stopped owning it.
+//
+// A function rather than the condition written inline where it is used, so the
+// top-screen audit can ask the real predicate the real question instead of
+// restating it - a restated condition is a check that passes because it agrees
+// with itself.
+//
+// inline rather than plain static because its one play-time caller sits inside
+// the #if that four capture/audit flags switch off, and -Werror turns the
+// resulting unused-function warning into four broken builds. Guarding it with
+// the same four-flag condition would be a second copy of that list to keep in
+// step; inline suppresses the warning without one.
+static inline bool topConsoleMustDefer(void)
+{
+	return topPreviewOwnedLastFrame && !titlePreviewActive();
+}
+
 static void queueTopRepaint(topRepaintKind what)
 {
 	topRepaintWhat   = what;
@@ -3423,7 +3461,18 @@ static void serviceTopRepaint(bool isNew3DS, bool menuIsOpen)
 
 	topRepaintFrames--;
 	if (topRepaintWhat == TOP_REPAINT_LEVEL) printStaticInfo(isNew3DS);
-	else if (topRepaintWhat == TOP_REPAINT_TITLE) titlePrintTop(isNew3DS);
+	else if (topRepaintWhat == TOP_REPAINT_TITLE)
+	{
+		// Forced, because titlePrintTop caches what it last put on the screen and
+		// returns without printing when nothing has changed since. That cache is
+		// right for the once-a-frame call in gameUpdateFrame and wrong here: the
+		// four frames this loop exists to spend are four attempts at the same
+		// unchanged page, so without this the second, third and fourth are all
+		// early returns and the margin is one frame, not four - while the comment
+		// above, and the reason four was chosen, both say otherwise.
+		titleInvalidatePrint();
+		titlePrintTop(isNew3DS);
+	}
 	if (topRepaintFrames == 0) topRepaintWhat = TOP_REPAINT_NONE;
 }
 
@@ -3687,6 +3736,14 @@ static const char* const menuItems[] = { "Resume", "Save", "Load", "Controls", "
 
 static menuPage menuOn     = PAGE_NONE;
 static int      menuCursor = 0;
+// Set by the Options page's Update row the instant it has saved the bench and
+// pointed the chainloader at this title (see optionsUpdateAction's
+// UPDATE_DONE case). Checked once, right after menuInput returns, so
+// gameUpdateFrame ends the loop instead of running menuInput's own true/false
+// return through the ordinary Quit-to-level-select branch - the two reach
+// this the same way but must not be handled by the same code, since one
+// leaves the level and the other leaves the game.
+static bool menuAppExit = false;
 
 // The result of the last Save or Load, shown under the rows until the menu is
 // closed. Cleared on open rather than on a timer: a message that disappears
@@ -4016,6 +4073,142 @@ static void runUndoAudit(void)
 static void runUndoAudit(void) { }
 #endif
 
+#if TEST_TOPSCREEN_AUDIT
+// ---------------------------------------------------------------------------
+// Does the console keep off the top screen while the preview owns it?
+//
+// The top screen is single-buffered - gfxSetDoubleBuffering(GFX_TOP, false) -
+// and three things write it: the CPU text console, the pause menu's citro2d
+// target, and now the level select's 3D preview. When two of them land in that
+// one buffer at once the result is half of each, permanently, because there is
+// no clean copy to present next frame.
+//
+// Nothing here can see that happen. The collision needs a real asynchronous
+// display transfer to be in flight, which is hardware; an emulator finishes the
+// transfer inside the same step, so on this bench the window never opens and a
+// screenshot comes back correct whether the bug is present or not. That is
+// exactly why it shipped: every check anyone could run said it was fine.
+//
+// So this audit checks the rule rather than the result. The rule is that the
+// console does not write that memory on any frame the preview owns it, and
+// titleConsoleWrites() counts writes for precisely this purpose. A count that
+// does not move is proof the collision cannot occur, and it is proof that holds
+// on hardware, which no screenshot taken here ever could.
+//
+// Five cases, and each one had a red state before the fix:
+//
+//   p  On the level select, a dirty print cache must not produce a write.
+//      Red before: titlePrintTop cleared the screen and THEN reached the
+//      do-nothing PAGE_LEVELS case, so it blanked the preview's framebuffer
+//      every time the volume, the built count, the updater or the language
+//      moved - and coming back from a finished kit moves the built count by
+//      definition.
+//
+//   q  The four queued repaints the pause menu's Quit fires on its way to the
+//      level select must not produce a write either. Red before: four of them,
+//      on four consecutive frames, into the buffer the preview was transferring
+//      into. This is the one steve reported.
+//
+//   d  On the frame the preview stops owning the screen, the console must
+//      defer. Red before: there was no deferral at all in that direction - the
+//      print went out inline, on the same frame as the last preview transfer.
+//
+//   n  On an ordinary front-end frame the console must NOT defer, or the fix
+//      would be "never print anything", which passes p, q and d and leaves the
+//      player on a blank screen.
+//
+//   f  A deferred repaint must write on all four of its frames, not just the
+//      first. Red before: titlePrintTop's change cache turned repaints two,
+//      three and four into early returns, so the four-frame margin the
+//      mechanism claims was really a one-frame margin.
+// ---------------------------------------------------------------------------
+static void runTopScreenAudit(bool isNew3DS)
+{
+	printf("TOPSCREEN AUDIT\n");
+
+	bool ok = true;
+	char marks[6] = "-----";
+
+	// --- p: the level select must be silent even with a dirty cache ---------
+	titleReturnToLevels();
+	titleInvalidatePrint();
+	{
+		unsigned before = titleConsoleWrites();
+		// Called the same number of times a second of real play calls it, so a
+		// single early return cannot be mistaken for the guard working.
+		for (int f = 0; f < 60; f++) titlePrintTop(isNew3DS);
+		unsigned wrote = titleConsoleWrites() - before;
+		printf("TS p (levels silent):       %u writes\n", wrote);
+		if (wrote == 0) marks[0] = 'P'; else ok = false;
+	}
+
+	// --- q: and silent under the Quit-to-level-select repaint queue ---------
+	// The two lines below are the real Quit path, in its real order: pause menu
+	// Quit calls titleReturnToLevels() - which throws away the print cache - and
+	// then queues the repaint. Case p leaves the cache in a state where every
+	// print here would be a cache hit, so without repeating that call this case
+	// would pass whether the fix were present or not, which is no check at all.
+	{
+		unsigned before = titleConsoleWrites();
+		titleReturnToLevels();
+		queueTopRepaint(TOP_REPAINT_TITLE);
+		// One more than the queue is long, so the loop also proves the queue
+		// stops rather than running for ever.
+		for (int f = 0; f < TOP_REPAINT_FRAMES + 1; f++)
+			serviceTopRepaint(isNew3DS, false);
+		unsigned wrote = titleConsoleWrites() - before;
+		printf("TS q (quit repaint silent): %u writes\n", wrote);
+		if (wrote == 0) marks[1] = 'P'; else ok = false;
+	}
+
+	// --- d: the frame the preview hands the screen back must defer ----------
+	// titleReturnToLevels above put the front end on PAGE_LEVELS, so the
+	// preview is live; titleBackFromLevels takes it off, which is what the B
+	// button does. The latch is set by hand because gameRenderFrame - the only
+	// thing that sets it in play - has not run in this build.
+	{
+		topPreviewOwnedLastFrame = true;
+		bool wasActive = titlePreviewActive();
+		titleTestLeaveLevels();
+		bool defer = topConsoleMustDefer();
+		printf("TS d (leaving defers):      preview was %d, now %d, defer %d\n",
+			wasActive ? 1 : 0, titlePreviewActive() ? 1 : 0, defer ? 1 : 0);
+		if (wasActive && !titlePreviewActive() && defer) marks[2] = 'P'; else ok = false;
+	}
+
+	// --- n: an ordinary frame must not defer --------------------------------
+	{
+		topPreviewOwnedLastFrame = false;
+		bool defer = topConsoleMustDefer();
+		unsigned before = titleConsoleWrites();
+		titleInvalidatePrint();
+		titlePrintTop(isNew3DS);
+		unsigned wrote = titleConsoleWrites() - before;
+		printf("TS n (ordinary prints):     defer %d, %u writes\n",
+			defer ? 1 : 0, wrote);
+		if (!defer && wrote == 1) marks[3] = 'P'; else ok = false;
+	}
+
+	// --- f: the deferred repaint writes on every one of its frames ----------
+	// Off the level select now, so the repaint is allowed to write. Four
+	// queued frames, four writes; the fifth call finds an empty queue.
+	{
+		unsigned before = titleConsoleWrites();
+		queueTopRepaint(TOP_REPAINT_TITLE);
+		for (int f = 0; f < TOP_REPAINT_FRAMES + 1; f++)
+			serviceTopRepaint(isNew3DS, false);
+		unsigned wrote = titleConsoleWrites() - before;
+		printf("TS f (repaint writes x%d):   %u writes\n", TOP_REPAINT_FRAMES, wrote);
+		if (wrote == (unsigned)TOP_REPAINT_FRAMES) marks[4] = 'P'; else ok = false;
+	}
+
+	printf("TS %s\n", marks);
+	printf("TOPSCREEN AUDIT %s\n", ok ? "PASS" : "FAIL");
+}
+#else
+static void runTopScreenAudit(bool isNew3DS) { (void)isNew3DS; }
+#endif
+
 #if TEST_SAVELOAD_AUDIT
 #include <sys/stat.h>
 #include <unistd.h>
@@ -4231,7 +4424,7 @@ static void runSaveLoadAudit(void)
 static void runSaveLoadAudit(void) { }
 #endif
 
-// Options has four rows now rather than the one it opened with, so it needs a
+// Options has five rows now rather than the one it opened with, so it needs a
 // cursor of its own. Kept separate from menuCursor so backing out of Options and
 // into it again does not move the pause menu's selection under the player.
 //
@@ -4239,20 +4432,37 @@ static void runSaveLoadAudit(void) { }
 // end's own Options, which meant changing it mid-build cost the player a trip
 // out to the title screen; the other half of that item is the Controls page
 // below, which used to be a read-only legend and now rebinds.
-static const char* const optionRows[] = { "MASTER VOLUME", "SHOW TUTORIAL", "SWAP START / SELECT", "LANGUAGE" };
-#define OPTION_ROW_COUNT 4
+//
+// UPDATE is the same move again for the in-app updater: it already existed on
+// the front end's own Options page (title.c's rUpdate/PAGE_UPDATE), reachable
+// only before a level was ever entered. A build check found mid-session had
+// the same problem LANGUAGE did - the only way to ask was to leave the bench -
+// so this row drives the same updater.h state machine title.c does, in place,
+// through the row mechanism every other setting on this page already uses
+// rather than a page of its own.
+static const char* const optionRows[] = { "MASTER VOLUME", "SHOW TUTORIAL", "SWAP START / SELECT", "LANGUAGE", "UPDATE" };
+#define OPTION_ROW_COUNT 5
 #define OPTION_ROW_LANGUAGE 3
+#define OPTION_ROW_UPDATE   4
 static int optionsCursor = 0;
 
 // Row geometry for this page. The three-row version sat at 102 with
 // MENU_ROW_STEP (31) between rows and 26px rows; a fourth row at that pitch
 // ends at 221, straight through the divider at 198 and the footer hint at 221.
 // Measured against the 240px screen the same way the pause menu's own numbers
-// were: at top 100 / step 25 / height 22 the fourth row runs 175 to 197, which
-// is the last row that clears the divider.
+// were: at top 100 / step 25 / height 22 the fourth row ran 175 to 197, which
+// was the last row that cleared the divider.
+//
+// UPDATE is a fifth row in the same footprint - the panel behind these rows
+// still ends at its bottom rule (y 198), and nothing below the rows moves,
+// so the four originals give up a few more of the same px LANGUAGE's arrival
+// already cost them. At top 100 / step 19 / height 18 the fifth row runs 176
+// to 194, which clears the rule by 4px - more room than the four-row
+// layout's own 1px margin, measured against the same 198 rather than
+// reasoned about.
 #define OPTION_ROW_TOP    100.0f
-#define OPTION_ROW_STEP    25.0f
-#define OPTION_ROW_HEIGHT  22.0f
+#define OPTION_ROW_STEP    19.0f
+#define OPTION_ROW_HEIGHT  18.0f
 
 // Move the language by `step` and make every cached copy of the old one catch
 // up. Three things hold text in a language: this menu, which re-parses every
@@ -4276,6 +4486,131 @@ static void optionsStepLanguage(int step)
 	if (next < 0) next += LANG_COUNT;
 	languageSet((gameLanguage)next);
 	titleRefreshStrings();
+}
+
+// --- the Update row (item 8's own updater half) -----------------------------
+//
+// The updater itself, and the console-only front end for it, already exist -
+// updater.h/.c and title.c's PAGE_UPDATE. This row does not reimplement any of
+// that; it is a second, in-level place to press the same buttons, reading the
+// same updaterState()/updaterMessage()/updaterProgress()/updaterLatestVersion()
+// title.c already reads. updaterInit/Exit are called once from gameInit/
+// gameShutdown, not from here - the row only ever asks the state machine
+// questions and tells it to move, the same as title.c's own HIT_UPDATE and
+// HIT_UPD_ACTION handlers do.
+//
+// The row has one text slot, not title.c's separate status line plus action
+// button, so it mirrors title.c's own status wording (updateShortLabel() in
+// title.c) rather than the action button's verbs - a row that says what is
+// true reads the same way every other row on this page already does (ON/OFF,
+// a percentage, a language's name), where a row that says what pressing A
+// would do would be the odd one out.
+static void optionsUpdateValueText(char* out, size_t outSize)
+{
+	if (!updaterAvailable())
+	{
+		snprintf(out, outSize, "%s", STR(STR_UPD_OFF));
+		return;
+	}
+
+	switch (updaterState())
+	{
+		case UPDATE_CHECKING:
+			snprintf(out, outSize, "%s", STR(STR_UPD_SHORT_CHECKING));
+			break;
+		case UPDATE_UP_TO_DATE:
+			snprintf(out, outSize, "%s", STR(STR_UPD_SHORT_UP_TO_DATE));
+			break;
+		case UPDATE_AVAILABLE:
+			// The version number, not just the word - title.c's own page has
+			// room for a separate "Newest : vX" line as well as this short
+			// label; one row does not, so the number rides on the same line.
+			snprintf(out, outSize, "%s %s", STR(STR_UPD_SHORT_AVAILABLE), updaterLatestVersion());
+			break;
+		case UPDATE_DOWNLOADING:
+			// The percentage, not the word, once a download is actually
+			// moving - the more useful of the two, the same reason the
+			// volume row above shows a number rather than just "loud".
+			snprintf(out, outSize, "%d%%", updaterProgress());
+			break;
+		case UPDATE_INSTALLING:
+			snprintf(out, outSize, "%s", STR(STR_UPD_SHORT_INSTALLING));
+			break;
+		case UPDATE_DONE:
+			snprintf(out, outSize, "%s", STR(STR_UPD_SHORT_DONE));
+			break;
+		case UPDATE_FAILED:
+			snprintf(out, outSize, "%s", STR(STR_UPD_SHORT_FAILED));
+			break;
+		default:
+			snprintf(out, outSize, "%s", STR(STR_UPD_SHORT_READY));
+			break;
+	}
+}
+
+// PAPER_LINE dims the row the same way the Controls page dims its three
+// gesture rows (tap/rub/drag) - the established "nothing will happen if you
+// press this" colour - for exactly the same reason title.c greys rUpdate's
+// own button: updaterInit() needs amInit, which fails on a bare .3dsx, and a
+// button that cannot work should not look like one that can. PAPER_AMBER is
+// the same "something needs attention" amber the autosave failure note
+// already uses on this page's own PAGE_MAIN, kept for UPDATE_FAILED alone so
+// it stands out from the plain PAPER_BLUE every other state (and every other
+// row's value) uses.
+static u32 optionsUpdateValueColor(void)
+{
+	if (!updaterAvailable()) return PAPER_LINE;
+	if (updaterState() == UPDATE_FAILED) return PAPER_AMBER;
+	return PAPER_BLUE;
+}
+
+// What the Update row's own A press does, one state at a time - the same
+// switch title.c's HIT_UPD_ACTION drives, because it is the same state
+// machine. Left/Right do nothing on this row: unlike Volume or Language this
+// is not a value to step through, it is a button, the same way title.c's own
+// action button only ever answers a tap and never a direction.
+//
+// Unavailable and busy both refuse outright rather than queuing anything -
+// updaterStartCheck/StartInstall already ignore a call that does not apply,
+// but the row checks first anyway so a press on a busy row cannot even reach
+// them, which is what keeps it from being re-triggerable while the worker
+// thread owns the job. Nothing here has to keep that worker "pumped": it runs
+// on its own thread and only writes updater.c's own statics, which the row
+// reads fresh every frame regardless of whether this page, the pause menu, or
+// even the level itself is what is on screen - the same reason leaving the
+// level or closing the pause menu mid-download cannot leave it half-driven.
+static void optionsUpdateAction(void)
+{
+	if (!updaterAvailable() || updaterBusy()) return;
+
+	switch (updaterState())
+	{
+		case UPDATE_AVAILABLE:
+			updaterStartInstall();
+			break;
+
+		case UPDATE_DONE:
+			// Installing relaunches the whole app, not just the level - a
+			// harder stop than the pause menu's own Quit, which only leaves
+			// the level and already writes the card before it does (see the
+			// Quit branch in gameUpdateFrame). Same two calls, same order,
+			// reused here rather than a new save path invented for this one
+			// button: saveCurrentLevel() folds the open bench back into
+			// levelBuilds[], progressSave() writes that array to the card,
+			// and only then is the chainloader asked to point at the fresh
+			// install and the app told to end its loop.
+			saveCurrentLevel();
+			progressSave();
+			updaterRelaunch();
+			menuAppExit = true;
+			break;
+
+		default:
+			// Idle, up to date or failed - all mean "ask again", same as
+			// title.c's own default case.
+			updaterStartCheck();
+			break;
+	}
 }
 
 // --- the in-level Controls page (item 8) ------------------------------------
@@ -4480,7 +4815,7 @@ static void drawInLevelMenu(void)
 		beginnerLabel(ram, 255.0f, 32.0f, 0.32f, PAPER_BLUE);
 		beginnerLabel("SETTINGS", 76.0f, 84.0f, 0.32f, PAPER_BLUE);
 
-		// Four rows on one page, drawn the same way the pause menu draws its
+		// Five rows on one page, drawn the same way the pause menu draws its
 		// items so the cursor means the same thing in both places. Each row shows
 		// its value on the right, because a toggle that only reads "SHOW TUTORIAL"
 		// tells a player what it is about and not what it is currently doing.
@@ -4510,6 +4845,17 @@ static void drawInLevelMenu(void)
 				// one value on this page a player who has just landed in a language
 				// they cannot read can still recognise on sight.
 				beginnerLabel(languageName(languageCurrent()), 256.0f, y + 4.0f, 0.36f, PAPER_BLUE);
+			}
+			else if (i == OPTION_ROW_UPDATE)
+			{
+				// Smaller and starting further left than the other three values:
+				// unlike ON/OFF or a language's name, what this row has to say
+				// ranges up to "Update available v0.5.2" or a full French
+				// sentence-length "Mise à jour dispo", and 0.36 from column 296
+				// is sized for two or three letters, not that.
+				char value[40];
+				optionsUpdateValueText(value, sizeof(value));
+				beginnerLabel(value, 190.0f, y + 4.0f, 0.32f, optionsUpdateValueColor());
 			}
 			else
 			{
@@ -4560,16 +4906,26 @@ static bool menuInput(u32 kDown, bool isNew3DS)
 		if (kDown & KEY_DDOWN)
 			optionsCursor = (optionsCursor + 1) % OPTION_ROW_COUNT;
 
-		// A toggles as well as left/right, because a two-state row has nothing
-		// for a direction to mean. It no longer backs out of the page: that is
-		// what B is for, and what the footer has always said.
-		int step = (kDown & KEY_DRIGHT) ? 1 : (kDown & KEY_DLEFT) ? -1 : 0;
-		if (step || (kDown & KEY_A))
+		// Update is a button, not a value - Left/Right have nothing to step
+		// through on this row, so it is pulled out of the step/A block below
+		// rather than folded into it. See optionsUpdateAction for what A does.
+		if (optionsCursor == OPTION_ROW_UPDATE)
 		{
-			if (optionsCursor == 0) { if (step) settingsVolumeStep(step * VOLUME_STEP); }
-			else if (optionsCursor == 1) settingsSetShowTutorial(!settingsShowTutorial());
-			else if (optionsCursor == OPTION_ROW_LANGUAGE) optionsStepLanguage(step ? step : 1);
-			else settingsSetSwapStartSelect(!settingsSwapStartSelect());
+			if (kDown & KEY_A) optionsUpdateAction();
+		}
+		else
+		{
+			// A toggles as well as left/right, because a two-state row has nothing
+			// for a direction to mean. It no longer backs out of the page: that is
+			// what B is for, and what the footer has always said.
+			int step = (kDown & KEY_DRIGHT) ? 1 : (kDown & KEY_DLEFT) ? -1 : 0;
+			if (step || (kDown & KEY_A))
+			{
+				if (optionsCursor == 0) { if (step) settingsVolumeStep(step * VOLUME_STEP); }
+				else if (optionsCursor == 1) settingsSetShowTutorial(!settingsShowTutorial());
+				else if (optionsCursor == OPTION_ROW_LANGUAGE) optionsStepLanguage(step ? step : 1);
+				else settingsSetSwapStartSelect(!settingsSwapStartSelect());
+			}
 		}
 		if (kDown & (KEY_B | KEY_SELECT)) menuOn = PAGE_MAIN;
 	}
@@ -4811,6 +5167,7 @@ static int gameInit(void)
 	runHintAudit();
 	runSaveLoadAudit();
 	runUndoAudit();
+	runTopScreenAudit(isNew3DS);
 	#if TEST_SAVELOAD_AUDIT
 	// Same hold the other console-output audits use: the frame loop paints over
 	// the top screen within one frame, and this output has to survive long
@@ -5370,7 +5727,22 @@ static bool gameUpdateFrame(void)
 			}
 			else {
 			#if !TEST_AUDIT_ALL_KITS && !TEST_CAMERA_IDLE_AUDIT && !TEST_CAMERA_PAN_AUDIT && !TEST_LEVEL1_WORKSPACE_AUDIT
-				titlePrintTop(isNew3DS);   // reprints only when the page moves
+				// The other half of the level-select screen fight, and the
+				// direction the guard in titlePrintTop does not cover: leaving the
+				// level select rather than arriving at it.
+				//
+				// titleInput has already moved the page off PAGE_LEVELS by the
+				// time this line runs, so titlePrintTop is now allowed to print -
+				// on the very frame the preview stopped being drawn, with the
+				// previous frame's display transfer into the one top framebuffer
+				// still possibly in flight. That is the same collision the pause
+				// menu has, and it gets the same treatment: the print is queued
+				// and done on later frames instead of this one. See the
+				// TOP_REPAINT_FRAMES comment for why a sync primitive is not used.
+				if (topConsoleMustDefer())
+					queueTopRepaint(TOP_REPAINT_TITLE);
+				else
+					titlePrintTop(isNew3DS);   // reprints only when the page moves
 			#endif
 			}
 		}
@@ -5389,30 +5761,45 @@ static bool gameUpdateFrame(void)
 				hoverPart    = -1;      // and the highlight that was offering it
 			}
 		}
-		else if (menuInput(kDown, isNew3DS))
+		else
 		{
-			// The pause menu's Quit leaves the level, not the game: the front end
-			// takes the bottom screen back on the level select, showing the page
-			// the level just left sits on. Only the Quit on the front end's own
-			// title page closes the game. The kit is left exactly as it was, so
-			// coming back into the level resumes the same build.
-			saveCurrentLevel();
-			// And out to the card while we are at it. Quitting to the level select
-			// is the one moment the player has plainly finished with a build, so
-			// it is the natural checkpoint - without it the only write is on the
-			// way out of the game, and a console that runs its battery flat on the
-			// level select would lose the lot.
-			progressSave();
-			// saveCurrentLevel has just folded the open build back into
-			// levelBuilds, so this is the first moment the array can say the
-			// kit just left is finished - and it is the moment before the
-			// grid that has to show it comes back on screen.
-			publishCompletion();
-			menuOn = PAGE_NONE;
-			titleReturnToLevels();
-			#if !TEST_AUDIT_ALL_KITS && !TEST_CAMERA_IDLE_AUDIT && !TEST_CAMERA_PAN_AUDIT && !TEST_LEVEL1_WORKSPACE_AUDIT
-			queueTopRepaint(TOP_REPAINT_TITLE);
-			#endif
+			bool quitToLevels = menuInput(kDown, isNew3DS);
+
+			// The Update row just saved the bench and pointed the chainloader at
+			// this title (optionsUpdateAction's UPDATE_DONE case) - a harder stop
+			// than the ordinary Quit below, which only leaves the level. Checked
+			// first because menuInput reports both through the same true/false
+			// return, and the two must not run into the same branch: one is
+			// "end the loop right now", the other still has a level to fold away
+			// and a front end to hand the screen back to.
+			if (menuAppExit)
+				return true; // close the game; the new build is what comes back
+
+			if (quitToLevels)
+			{
+				// The pause menu's Quit leaves the level, not the game: the front end
+				// takes the bottom screen back on the level select, showing the page
+				// the level just left sits on. Only the Quit on the front end's own
+				// title page closes the game. The kit is left exactly as it was, so
+				// coming back into the level resumes the same build.
+				saveCurrentLevel();
+				// And out to the card while we are at it. Quitting to the level select
+				// is the one moment the player has plainly finished with a build, so
+				// it is the natural checkpoint - without it the only write is on the
+				// way out of the game, and a console that runs its battery flat on the
+				// level select would lose the lot.
+				progressSave();
+				// saveCurrentLevel has just folded the open build back into
+				// levelBuilds, so this is the first moment the array can say the
+				// kit just left is finished - and it is the moment before the
+				// grid that has to show it comes back on screen.
+				publishCompletion();
+				menuOn = PAGE_NONE;
+				titleReturnToLevels();
+				#if !TEST_AUDIT_ALL_KITS && !TEST_CAMERA_IDLE_AUDIT && !TEST_CAMERA_PAN_AUDIT && !TEST_LEVEL1_WORKSPACE_AUDIT
+				queueTopRepaint(TOP_REPAINT_TITLE);
+				#endif
+			}
 		}
 
 		// Re-read, because the front end can have come back this very frame.
@@ -5800,23 +6187,27 @@ static void gameRenderFrame(void)
 					C2D_Flush();
 				}
 			}
-			// The progress tag. Not under the pause menu, which covers the top
-			// screen but leaves the bench visible behind it and would end up with
-			// two competing readouts on screen at once. Not while the box is still
-			// opening either: every count is zero until it has finished, so the tag
-			// would appear during the one animation the player is meant to be
-			// watching in order to say nothing at all. Not in a capture build, for
-			// the same reason the hint dot is not.
+			// The Undo button. Not under the pause menu, which covers the top
+			// screen but leaves the bench visible behind it, so a live button
+			// would sit there under a menu that has already stopped taking taps.
+			// Not while the box is still opening either: there is nothing to undo
+			// until it has finished, and the button would appear greyed during
+			// the one animation the player is meant to be watching. Not in a
+			// capture build, for the same reason the hint dot is not.
+			//
+			// The progress tag used to be drawn alongside it here. It is gone -
+			// its readout is the step bar on the top screen now; see the note
+			// where drawBenchHud was, above drawUndoButton.
 			if (!TEST_CAPTURE_HIDE_GUIDE && menuOn == PAGE_NONE && boxOpen >= 1.0f)
 			{
 				C2D_Prepare();
 				C2D_SceneBegin(benchTarget);
-				// Cleared here rather than inside either drawer: both parse into it,
-				// and drawBenchHud can return early on a kit with no parts, which
-				// would leave the buffer to grow a label a frame with nothing ever
-				// emptying it.
+				// Cleared here rather than inside the drawer, which is where it was
+				// when two drawers shared the buffer. Kept out here anyway: the
+				// clear pairs with the frame, not with the button, and a buffer
+				// that stops being emptied fills 4096 glyphs and silently stops
+				// rendering rather than failing.
 				C2D_TextBufClear(benchText);
-				drawBenchHud();
 				drawUndoButton();
 				C2D_Flush();
 			}
@@ -5858,6 +6249,12 @@ static void gameRenderFrame(void)
 		: (beginnerTopShowing() || menuOn != PAGE_NONE);
 	if (TEST_AUDIT_ALL_KITS || TEST_COLLISION_AUDIT || TEST_CEILING_AUDIT || TEST_CAPTURE_HIDE_GUIDE || !topDrawnByCitro)
 		gfxScreenSwapBuffers(GFX_TOP, false);
+
+	// Recorded here, off the same two answers the swap decision above is made
+	// from, so "did the preview draw the top screen" cannot be answered one way
+	// for the swap and another way for next frame's console. Read at the top of
+	// the next gameUpdateFrame; see topPreviewOwnedLastFrame.
+	topPreviewOwnedLastFrame = showTitle && titlePreviewActive();
 }
 
 // Every way out of the frame loop lands here - START, the front end's Quit,

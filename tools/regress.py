@@ -3,9 +3,9 @@
 
 Before this, each of the twenty TEST_* flags in source/debug.h needed somebody to
 edit the header, hand-build a binary, launch it, screenshot the top screen and
-read the verdict off the picture. Nine of those flags print a verdict in words,
-so nine of them never needed a human at all - they needed the words to leave the
-framebuffer. source/audit_log.c copies console output to sdmc:/3ds/modelkit/
+read the verdict off the picture. Eleven of those flags print a verdict in words,
+so eleven of them never needed a human at all - they needed the words to leave
+the framebuffer. source/audit_log.c copies console output to sdmc:/3ds/modelkit/
 audit.log; this reads that file.
 
     python tools/regress.py                 every audit
@@ -71,6 +71,8 @@ AUDITS = [
          verdict=r"^SAVELOAD AUDIT .*$",           passing=r"PASS\s*$"),
     dict(name="undo",      flag="TEST_UNDO_AUDIT",
          verdict=r"^UNDO AUDIT .*$",               passing=r"PASS\s*$"),
+    dict(name="topscreen", flag="TEST_TOPSCREEN_AUDIT",
+         verdict=r"^TOPSCREEN AUDIT .*$",          passing=r"PASS\s*$"),
 ]
 
 # Three of the audits hold their output on screen for fifteen seconds so a person
@@ -120,6 +122,10 @@ def run_one(audit):
     if not ok:
         return dict(audit, status="BUILD FAILED", line=out.splitlines()[-1] if out else "")
 
+    # emu.ps1 now tracks only the Azahar instance it personally launched (a pid
+    # file in $env:TEMP), so this kill - and the one at the end of the run below
+    # - no longer sweeps every Azahar on the box by image name. Safe to run
+    # while steve or another session has their own instance open.
     powershell("-Action", "kill")
     AUDIT_LOG.unlink(missing_ok=True)
     if AUDIT_LOG.exists():

@@ -167,6 +167,24 @@
 #ifndef TEST_UNDO_AUDIT
 #define TEST_UNDO_AUDIT 0
 #endif
+// Checks that the front-end console never writes the single-buffered top screen
+// while the level select's 3D preview owns it, in either direction of the
+// transition - arriving at the level select, and leaving it.
+//
+// This one exists because the fault it covers cannot be seen here at all. The
+// top screen has one framebuffer and two writers; when they collide the result
+// is half console, half 3D, and it stays that way for the session. Real hardware
+// has an asynchronous transfer engine so it happens there, and an emulator
+// finishes the transfer inside the same step so it never does. Screenshots
+// therefore prove nothing either way.
+//
+// So the audit does not look at the screen. It counts console writes - see
+// titleConsoleWrites() - and asserts they are zero across the frames where the
+// preview owns that memory. Console output only; nothing is drawn and the card
+// is not touched.
+#ifndef TEST_TOPSCREEN_AUDIT
+#define TEST_TOPSCREEN_AUDIT 0
+#endif
 
 // True when any flag above is on - which is to say, when this build is a
 // verification pass rather than the game.
@@ -191,7 +209,7 @@
 	TEST_CAMERA_PAN_AUDIT || TEST_CEILING_AUDIT || TEST_COLLISION_AUDIT || \
 	TEST_POSE_PART || TEST_ATLAS_GRADIENT || TEST_HINT_AUDIT || \
 	TEST_HINT_TOUR || TEST_PAINT_AUDIT || TEST_SAVELOAD_AUDIT || \
-	TEST_SAVELOAD_TOUR || TEST_UNDO_AUDIT)
+	TEST_SAVELOAD_TOUR || TEST_UNDO_AUDIT || TEST_TOPSCREEN_AUDIT)
 
 // The subset of the flags above that answer in words rather than in pictures.
 //
@@ -207,4 +225,5 @@
 	TEST_AUDIT_ALL_KITS || TEST_CAMERA_IDLE_AUDIT || \
 	TEST_LEVEL1_WORKSPACE_AUDIT || TEST_CAMERA_PAN_AUDIT || \
 	TEST_CEILING_AUDIT || TEST_COLLISION_AUDIT || TEST_HINT_AUDIT || \
-	TEST_PAINT_AUDIT || TEST_SAVELOAD_AUDIT || TEST_UNDO_AUDIT)
+	TEST_PAINT_AUDIT || TEST_SAVELOAD_AUDIT || TEST_UNDO_AUDIT || \
+	TEST_TOPSCREEN_AUDIT)

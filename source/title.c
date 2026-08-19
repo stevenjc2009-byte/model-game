@@ -828,9 +828,75 @@ titleAction titleInput(u32 kDown, u32 kHeld, u32 kUp)
 // no manual pages, no part names, nothing at all from the bench. The workbench
 // takes it over when Play is tapped, and not a frame before.
 
+void titleInvalidatePrint(void)
+{
+	printedPage = -1;
+}
+
+// How many times this function has actually written the console, as opposed to
+// how many times it has been called. The two diverged badly - that divergence is
+// the bug this counts - and no test can see the difference from outside, because
+// a console write leaves no trace anything in the process can read back.
+//
+// Incremented at the screen clear rather than on entry, so it counts exactly the
+// event that matters: bytes going into the single top-screen framebuffer.
+static unsigned titleConsoleWriteCount = 0;
+
+unsigned titleConsoleWrites(void)
+{
+	return titleConsoleWriteCount;
+}
+
+#if TEST_TOPSCREEN_AUDIT
+// Takes the front end off the level select, the way the Back button does.
+//
+// The real route there is HIT_BACK, which titleInput only reaches by hit-testing
+// a stylus press against rLevTopBack - and titleInput reads the touch hardware
+// itself, so an audit has nothing to hand it. What is under test is not this
+// routing anyway: it is what main.c does on the frame the preview stops owning
+// the screen. So the page is moved directly, to the same PAGE_TITLE the HIT_BACK
+// case above assigns, and the audit's claim is scoped to match - it proves the
+// deferral fires when the page moves, not that the Back button moves the page.
+void titleTestLeaveLevels(void)
+{
+	page = PAGE_TITLE;
+}
+#endif
+
 void titlePrintTop(bool isNew3DS)
 {
 	if (!active) return;
+
+	// The level select hands GFX_TOP to the 3D preview in main.c, and that screen
+	// is single-buffered - one framebuffer, no clean copy to present if something
+	// scribbles on it. So while this page is up the console must not write that
+	// memory at all.
+	//
+	// "At all" is the part that was missing. The switch below has always had a
+	// PAGE_LEVELS case that deliberately prints nothing, which looked like it
+	// covered this. It does not: the screen clear four lines under here runs
+	// BEFORE the switch, unconditionally, so reaching the do-nothing case still
+	// blanked the whole top framebuffer on the way to doing nothing.
+	//
+	// That fires more often than it looks. The cache below lets this function
+	// through whenever the volume, the built count, the updater's state or
+	// progress, or the language has moved since the last print - and coming back
+	// to the level select from a kit that was just finished moves the built
+	// count by definition. Worse, main.c's Quit-to-level-select queues four
+	// repaints through serviceTopRepaint, so the console cleared the preview's
+	// framebuffer on four consecutive frames while the preview was transferring
+	// into it. What lands is the console's background and text mixed into the
+	// spinning model, and it stays that way for the rest of the session.
+	//
+	// printedPage is dropped rather than left alone so that whichever page comes
+	// after this one prints in full - the cache must not remember a page that was
+	// never actually put on the screen.
+	if (page == PAGE_LEVELS)
+	{
+		printedPage = -1;
+		return;
+	}
+
 	if ((int)page == printedPage && settingsVolume() == printedVolume
 		&& levelPage == printedLevelPage && builtTotal() == printedBuilt
 		&& (int)updaterState() == printedUpdState
@@ -846,17 +912,22 @@ void titlePrintTop(bool isNew3DS)
 
 	// The rule line is exactly the console's 50 columns and so needs no newline
 	// of its own - it wraps onto the next row by itself.
+	titleConsoleWriteCount++;
 	printf("\x1b[2J\x1b[1;1H");
 
 	switch (page)
 	{
 		case PAGE_LEVELS:
-			// Deliberately nothing. The level select hands the top screen to the
-			// 3D preview in main.c, which clears and redraws it every frame -
-			// anything printed here would be wiped before a player could read it.
-			// The kit's name, its part count and whether it has been built are
-			// drawn over the model itself instead, where they describe the thing
-			// being looked at rather than the list of ten it came from.
+			// Unreachable - the guard at the top of this function returns before
+			// the clear above, which is the whole point of it. Kept so the switch
+			// still covers every page, and so a future edit that removes the
+			// guard fails to compile rather than quietly resuming the corruption.
+			//
+			// Nothing was ever printed here anyway. The level select hands the top
+			// screen to the 3D preview in main.c; the kit's name, its part count
+			// and whether it has been built are drawn over the model itself,
+			// where they describe the thing being looked at rather than the list
+			// of ten it came from.
 			break;
 
 		case PAGE_OPTIONS:

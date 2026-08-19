@@ -11,6 +11,10 @@
 #include <3ds.h>
 #include <citro3d.h>
 
+// For TEST_TOPSCREEN_AUDIT, which gates the audit-only hook at the bottom of
+// this file. Compiles to nothing in the shipped game.
+#include "debug.h"
+
 // What the player asked for on this frame.
 typedef enum
 {
@@ -79,7 +83,36 @@ titleAction titleInput(u32 kDown, u32 kHeld, u32 kUp);
 // The front end's own top-screen text for whichever page is open. Safe to call
 // every frame - it only reprints when the page or the volume has moved, and it
 // does nothing once Play has handed the console to the workbench.
+//
+// It also does nothing at all on the level select, where the 3D preview owns
+// the single-buffered top screen and a console write - even the screen clear on
+// the way to printing nothing - lands in the middle of the preview.
 void titlePrintTop(bool isNew3DS);
+
+// Throws away titlePrintTop's memory of what it last put on screen, so the next
+// call prints in full rather than deciding nothing has changed.
+//
+// One caller: main.c's deferred top-screen repaint, which prints the same
+// unchanged page on several consecutive frames on purpose, to outlast a display
+// transfer it cannot otherwise wait on. Without this, only the first of those
+// frames writes anything and the rest are cache hits.
+void titleInvalidatePrint(void);
+
+// How many times titlePrintTop has actually written the top-screen console.
+//
+// Not a call count - a write count, incremented at the screen clear. The whole
+// class of bug here is a function that was called constantly and wrote at
+// moments it should not have, and from outside there is nothing to observe: a
+// console write cannot be read back, and the corruption it causes only appears
+// on hardware. This is the observable the top-screen audit checks.
+unsigned titleConsoleWrites(void);
+
+#if TEST_TOPSCREEN_AUDIT
+// Audit-only. Moves the front end off the level select without a stylus tap;
+// see the note on the definition for why the real Back route is unavailable to
+// a test and what that scopes the audit's claim to.
+void titleTestLeaveLevels(void);
+#endif
 
 // Draws the current page. Call inside a citro3d frame; it re-binds citro2d's
 // own shader state, so the caller has to put the 3D state back before drawing

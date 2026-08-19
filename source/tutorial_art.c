@@ -233,20 +233,73 @@ static void textCenter(C2D_TextBuf buf, float xCenter, float y, float scale, u32
 }
 
 // ---------------------------------------------------------------------------
-// The four progress bars and "STEP N" heading shared by every page.
+// The build-step bar and "STEP n/N" heading shared by every page.
+//
+// This row used to be four fat pips counting the four tutorial pages - open,
+// snip, file, fit - which was the least useful thing it could have counted.
+// Which page of the tutorial you are looking at is already obvious from the
+// page: it says OPEN THE BOX across the top of it in 0.60 type. What the row
+// says now is where the *build* has got to, one bar per step, which is the
+// question that was being answered in a panel on the bottom screen instead -
+// on the screen the model is on, in the corner the stylus works over.
+//
+// The span is unchanged, 20 to 378, so the row still lines up with the titles
+// under it and with the right-hand tag at 378. Only the division moved: what
+// was 4 bars of 82 with 10 between them is now N bars sharing the same 358.
+#define BAR_LEFT   20.0f
+#define BAR_RIGHT 378.0f
+#define BAR_Y      10.0f
+#define BAR_H       9.0f
+#define BAR_GAP     6.0f
+// A kit with more steps than this would divide the row into slivers narrower
+// than the gaps between them, which reads as noise rather than as a count. No
+// kit in the game is close - every one has ten - so this is a guard on a future
+// kit, not a case that happens today; past it the row stops subdividing and
+// just fills proportionally, one solid bar.
+#define BAR_MAX_STEPS 24
 
-static void drawPips(C2D_TextBuf buf, int step)
+void tutorialDrawStepBar(C2D_TextBuf buf, int now, int total)
 {
-	const float pipX[4] = { 20.0f, 112.0f, 204.0f, 296.0f };
-	for (int i = 0; i < 4; i++)
-		C2D_DrawRectSolid(pipX[i], 10.0f, 0.0f, 82.0f, 9.0f, i < step ? CLR_BLUE : CLR_PIP_OFF);
+	const float span = BAR_RIGHT - BAR_LEFT;
 
-	// Sized in bytes, not letters. "ETAPE 4" is seven and used to fit here with
-	// nothing to spare; the French "ETAPE" carries an acute on the E, which is
-	// two bytes in UTF-8, and the step number was being truncated away.
-	char label[16];
-	snprintf(label, sizeof(label), STR(STR_T_STEP_N), step);
-	text(buf, 20.0f, 24.0f, 0.42f, CLR_BLUE, label);
+	if (total <= 0)
+	{
+		// No kit, or a kit with no sockets. An empty track rather than nothing,
+		// so the row does not vanish and shift everything under it.
+		C2D_DrawRectSolid(BAR_LEFT, BAR_Y, 0.0f, span, BAR_H, CLR_PIP_OFF);
+		return;
+	}
+
+	if (now < 0)     now = 0;
+	if (now > total) now = total;
+
+	if (total <= BAR_MAX_STEPS)
+	{
+		const float w = (span - BAR_GAP * (float)(total - 1)) / (float)total;
+		for (int i = 0; i < total; i++)
+			C2D_DrawRectSolid(BAR_LEFT + (float)i * (w + BAR_GAP), BAR_Y, 0.0f,
+				w, BAR_H, i < now ? CLR_BLUE : CLR_PIP_OFF);
+	}
+	else
+	{
+		C2D_DrawRectSolid(BAR_LEFT, BAR_Y, 0.0f, span, BAR_H, CLR_PIP_OFF);
+		C2D_DrawRectSolid(BAR_LEFT, BAR_Y, 0.0f,
+			span * ((float)now / (float)total), BAR_H, CLR_BLUE);
+	}
+
+	// STR_C_BENCH_STEP rather than a new string: it is "STEP %d/%d", already
+	// translated, and it is the exact line the bench panel this replaces was
+	// printing. Sized in bytes and not letters - the French "ÉTAPE" carries an
+	// acute on the E, which is two bytes in UTF-8, and an array cut to the
+	// letter count truncated the numbers off the end of it.
+	char label[24];
+	snprintf(label, sizeof(label), STR(STR_C_BENCH_STEP), now, total);
+	text(buf, BAR_LEFT, 24.0f, 0.42f, CLR_BLUE, label);
+}
+
+static void drawPips(C2D_TextBuf buf, const tutorialInfo* info)
+{
+	tutorialDrawStepBar(buf, info->stepNow, info->stepTotal);
 }
 
 // ---------------------------------------------------------------------------
@@ -254,9 +307,13 @@ static void drawPips(C2D_TextBuf buf, int step)
 
 static void drawStepOpen(C2D_TextBuf buf, const tutorialInfo* info)
 {
-	(void)info;
-	drawPips(buf, 1);
-	textRight(buf, 378.0f, 24.0f, 0.42f, CLR_TAG, STR(STR_T_OF_4));
+	drawPips(buf, info);
+	// No right-hand tag on this page. It used to read "OF 4", which paired with
+	// the four pips to say which tutorial page was up; the bar counts build
+	// steps now and carries its own "n/N", so "OF 4" would be answering a
+	// question nothing on the screen is asking. The other three pages put a real
+	// figure in this slot - parts snipped, filing percent, parts fitted - and
+	// there is no equivalent for "the box is still shut".
 	text(buf, 20.0f, 44.0f, 0.60f, CLR_INK, STR(STR_T_OPEN_TITLE));
 	text(buf, 20.0f, 71.0f, 0.42f, CLR_MUTED, STR(STR_T_OPEN_SUB));
 
@@ -284,7 +341,7 @@ static void drawStepOpen(C2D_TextBuf buf, const tutorialInfo* info)
 
 static void drawStepSnip(C2D_TextBuf buf, const tutorialInfo* info)
 {
-	drawPips(buf, 2);
+	drawPips(buf, info);
 	char tag[24];
 	snprintf(tag, sizeof(tag), STR(STR_T_SNIP_COUNT), info->cutDone, info->partTotal);
 	textRight(buf, 378.0f, 24.0f, 0.42f, CLR_TAG, tag);
@@ -333,7 +390,7 @@ static void drawStepSnip(C2D_TextBuf buf, const tutorialInfo* info)
 
 static void drawStepFile(C2D_TextBuf buf, const tutorialInfo* info)
 {
-	drawPips(buf, 3);
+	drawPips(buf, info);
 	char tag[24];
 	snprintf(tag, sizeof(tag), STR(STR_T_FILE_PCT), (int)(clampf(info->filePct, 0.0f, 1.0f) * 100.0f + 0.5f));
 	textRight(buf, 378.0f, 24.0f, 0.42f, CLR_TAG, tag);
@@ -375,7 +432,7 @@ static void drawStepFile(C2D_TextBuf buf, const tutorialInfo* info)
 
 static void drawStepFit(C2D_TextBuf buf, const tutorialInfo* info)
 {
-	drawPips(buf, 4);
+	drawPips(buf, info);
 	char tag[24];
 	snprintf(tag, sizeof(tag), STR(STR_T_FIT_COUNT), info->builtDone, info->partTotal);
 	textRight(buf, 378.0f, 24.0f, 0.42f, CLR_TAG, tag);

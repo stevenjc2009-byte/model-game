@@ -112,6 +112,7 @@ title.o: \
  C:/devkitPro/libctru/include/c2d/text.h \
  C:/devkitPro/libctru/include/c2d/font.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/title.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/debug.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/audio.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/mesh.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/settings.h \
@@ -231,6 +232,7 @@ C:/devkitPro/libctru/include/c2d/sprite.h:
 C:/devkitPro/libctru/include/c2d/text.h:
 C:/devkitPro/libctru/include/c2d/font.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/title.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/debug.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/audio.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/mesh.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/settings.h:
