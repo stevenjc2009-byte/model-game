@@ -363,7 +363,6 @@ static C2D_TextBuf dynBuf;
 
 static C2D_Text txtTitle, txtTagline, txtPlay, txtOptions, txtQuit;
 static C2D_Text txtOptHdr, txtVolume, txtMinus, txtPlus, txtControls, txtBack;
-static C2D_Text txtVolNote;
 static C2D_Text txtCtlHdr;
 static C2D_Text txtLanguage, txtReset;
 
@@ -418,10 +417,9 @@ static void refreshStaticText(void)
 	parseId(&txtPlus,     STR_PLUS);
 	parseId(&txtControls, STR_CONTROLS);
 	parseId(&txtBack,     STR_BACK);
-	// One line, not two: the gap between the volume row and the Controls button
-	// is a single line of 0.4-scale text tall, and a second one lands on the
-	// button. At roughly 5 px a character this is 260 of the 320 px across.
-	parseId(&txtVolNote,  STR_VOL_NOTE);
+	// STR_VOL_NOTE is no longer parsed or drawn - see drawOptionsPage for why the
+	// caption under the volume bar is gone. The string itself is left in
+	// strings.c, translated, in case the page ever regains the room for it.
 	parseId(&txtCtlHdr,   STR_CONTROLS);
 	parseId(&txtLanguage, STR_LANGUAGE);
 	parseId(&txtReset,    STR_RESET);
@@ -1050,9 +1048,25 @@ void titlePrintTop(bool isNew3DS)
 // ---------------------------------------------------------------------------
 // Drawing
 
+// Text sits at the same depth as every rectangle on this screen, so that which
+// of two overlapping things wins is decided by the order they are drawn in and
+// nothing else.
+//
+// It used to be drawn at 0.5 while C2D_DrawRectSolid is called at 0.0
+// throughout this file, and citro2d's C2D_Prepare sets GPU_GEQUAL with
+// GPU_WRITE_ALL - depth writes on. A string therefore stamped 0.5 into the
+// depth buffer and every panel drawn after it failed 0.0 >= 0.5 and was thrown
+// away, so text punched a hole clean through anything that should have covered
+// it. On the Options page that showed up as the volume caption cutting across
+// the faces of the Controls and Check for Update buttons, and as the bottom of
+// "Master volume" bleeding over the top edge of the minus button.
+//
+// Every button here draws its own face before its own label, so equal depth
+// leaves all of those exactly as they were: same depth passes GEQUAL, and the
+// later draw wins.
 static void drawTextAt(const C2D_Text* t, float x, float y, float scale, u32 clr)
 {
-	C2D_DrawText(t, C2D_WithColor, x, y, 0.5f, scale, scale, clr);
+	C2D_DrawText(t, C2D_WithColor, x, y, 0.0f, scale, scale, clr);
 }
 
 static void drawTextCentred(const C2D_Text* t, const rect* r, float scale, u32 clr)
@@ -1424,8 +1438,19 @@ static void drawOptionsPage(void)
 		C2D_DrawRectSolid(BAR_X + i * cell + 1.0f, BAR_Y, 0.0f, cell - 2.0f, BAR_H,
 			i < lit ? CLR_BAR_ON : CLR_BAR_OFF);
 
-	drawTextAt(&txtVolNote, 14.0f, 110.0f, 0.4f, CLR_DIM);
-
+	// There is no caption under the bar any more. It was drawn at y=110, and the
+	// Controls/Update row begins at y=108 - the two have overlapped since item 50
+	// moved that row up to make space for the Language row, and only the depth-
+	// buffer fault above (see drawTextAt) hid the collision by letting the caption
+	// win. Once order decides, the buttons cover the middle of the sentence and
+	// leave the first few characters stranded on the mat beside them and a sliver
+	// showing in the seam between the two, which reads worse than the overlap did.
+	//
+	// The page has no vertical room left to move it into: the bar's channel ends
+	// at y=101 and the row starts at y=108, and everything below is packed to the
+	// pixel. Nothing is lost by dropping it - no other row on this page carries a
+	// caption, and the top screen already describes the volume control in full
+	// (see STR_C_OPTIONS_HELP1 in titlePrintTop).
 	drawPartButton(&rControls, &txtControls, 0.8f, CLR_ACC_SET);
 	drawPartButtonTwoLine(&rUpdate, &txtUpd1, &txtUpd2, 0.5f, CLR_ACC_SET);
 

@@ -3071,6 +3071,28 @@ static void previewRenderKit(bool built)
 	C3D_FVUnifSet(GPU_VERTEX_SHADER, uLoc_lightClr,     1.0f, 1.0f, 1.0f, 1.0f);
 	setNormalScale(1.0f, 1.0f, 1.0f);
 
+	// An unbuilt kit is drawn without the atlas as well as without its colours.
+	//
+	// materialSilhouette takes the lighting away, but sceneBind() has left the
+	// shared atlas modulating over every part, and the atlas is where the wood
+	// grain, the panel lines and the tread patterns live. Those survive being
+	// flattened to one grey - they are texture, not shading - so a locked kit
+	// still showed which parts were planks and which were metal, which is the
+	// spoiler the silhouette exists to withhold.
+	//
+	// This is the same untextured REPLACE path sceneBind falls back to when the
+	// atlas failed to build, so it is a state the renderer already knows how to
+	// be in. Nothing needs restoring afterwards: every 3D pass re-binds its own
+	// state before it draws (see sceneBind's header), and previewDraw calls
+	// C2D_Prepare straight after this returns.
+	if (!built)
+	{
+		C3D_TexEnv* env = C3D_GetTexEnv(0);
+		C3D_TexEnvInit(env);
+		C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, 0, 0);
+		C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
+	}
+
 	const meshPart* parts = meshParts();
 	for (int i = 0; i < nSock; i++)
 	{
