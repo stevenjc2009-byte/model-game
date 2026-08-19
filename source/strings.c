@@ -149,7 +149,6 @@ static const char* const englishText[STR_COUNT] =
 	[STR_C_STATUS_RAM]             = "RAM %u%%",
 
 	[STR_C_BENCH_STEP]             = "STEP %d/%d",
-	[STR_C_BENCH_COUNTS]           = "snip %d/%d  file %d/%d  fit %d/%d",
 	[STR_C_UNDO_LABEL]             = "UNDO",
 	[STR_C_UNDO_DONE]              = "undone",
 	[STR_C_UNDO_NOTHING]           = "nothing to undo",
@@ -161,8 +160,6 @@ static const char* const englishText[STR_COUNT] =
 	[STR_C_MANUAL_GUIDE]  = "  Snip the stub, file the nub, tap the ghost.\n",
 	[STR_C_MANUAL_HEADER] = "Model Kit  -  build manual       level %2d\n",
 
-	[STR_T_STEP_N]      = "STEP %d",
-	[STR_T_OF_4]        = "OF 4",
 	[STR_T_OPEN_TITLE]  = "OPEN THE BOX",
 	[STR_T_OPEN_SUB]    = "Touch the red dot on the lid.",
 	[STR_T_OPEN_LIFTS]  = "it lifts off",
@@ -348,7 +345,6 @@ static const char* const frenchText[STR_COUNT] =
 	[STR_C_STATUS_RAM]             = "RAM %u%%",
 
 	[STR_C_BENCH_STEP]             = "ETAPE %d/%d",
-	[STR_C_BENCH_COUNTS]           = "coupe %d/%d  lime %d/%d  pose %d/%d",
 	[STR_C_UNDO_LABEL]             = "ANNULER",
 	[STR_C_UNDO_DONE]              = "annulé",
 	[STR_C_UNDO_NOTHING]           = "rien à annuler",
@@ -360,8 +356,6 @@ static const char* const frenchText[STR_COUNT] =
 	[STR_C_MANUAL_GUIDE]  = "  Decoupez l'ergot, limez, touchez le fantome.\n",
 	[STR_C_MANUAL_HEADER] = "Model Kit  -  manuel de montage    niveau %2d\n",
 
-	[STR_T_STEP_N]      = "ÉTAPE %d",
-	[STR_T_OF_4]        = "SUR 4",
 	[STR_T_OPEN_TITLE]  = "OUVREZ LA BOÎTE",
 	[STR_T_OPEN_SUB]    = "Touchez le point rouge du couvercle.",
 	[STR_T_OPEN_LIFTS]  = "il se soulève",

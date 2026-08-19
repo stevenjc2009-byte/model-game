@@ -1484,10 +1484,12 @@ static void manualUpdate(void)
 // the right of pages 2, 3 and 4 - so the panel's second line was a second copy
 // of a figure already on the other screen.
 //
-// STR_C_BENCH_COUNTS is orphaned by this and left in strings.c rather than
-// deleted: the string tables are indexed by a designated-initialiser enum, so
-// an unused entry costs its own bytes and nothing else, and a translated string
-// is worth more sitting unused than it is worth removing.
+// STR_C_BENCH_COUNTS was orphaned by this and has been deleted from strings.h
+// and from both language tables, along with the sheet's old STR_T_STEP_N and
+// STR_T_OF_4. Nothing in the build reads an unreferenced string, so the cost of
+// keeping them was only bytes - but a translated string with no caller reads
+// like a feature that exists, and the next person to grep for "STEP" should find
+// one answer.
 
 
 // The Undo button, mirrored across the bench from the progress tag.

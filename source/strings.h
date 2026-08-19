@@ -196,13 +196,15 @@ typedef enum
 	STR_C_STATUS_TAP_MOVES,      // "tap a part that moves"
 	STR_C_STATUS_RAM,            // "RAM %u%%"
 
-	// The bench progress strip - the small paper tag in the corner of the
-	// workbench that says how far into the kit the player is. Two lines: which
-	// step the manual is open at, and how much of each of the three jobs is
-	// done. Kept as format strings so the French words are the same length
-	// problem as any other translation rather than a special case.
+	// How far into the kit the player is. It labels the step bar at the top of
+	// the top screen now - see tutorialDrawStepBar in tutorial_art.c - having
+	// started life on a paper tag in the corner of the workbench. The counts
+	// string that used to sit under it on that tag is gone: the tutorial sheet
+	// has always shown snipped, filed and fitted against their totals on the
+	// right of pages 2, 3 and 4, so it was a second copy of a figure already on
+	// the same screen. Kept as a format string so the French words are the same
+	// length problem as any other translation rather than a special case.
 	STR_C_BENCH_STEP,            // "STEP %d/%d"
-	STR_C_BENCH_COUNTS,          // "snip %d/%d  file %d/%d  fit %d/%d"
 
 	// One-step undo. The label sits on the bench button; the other two are
 	// status-line answers, and they go through the same seatMsg line every
@@ -223,8 +225,11 @@ typedef enum
 	// tutorial) - tutorial_art.c. STR_T_* to keep this block distinct from
 	// the STR_C_BEGINNER_* console block above, which is a different render
 	// path (console text vs citro2d shapes) covering the same four steps.
-	STR_T_STEP_N,        // "STEP %d"
-	STR_T_OF_4,           // "OF 4"
+	//
+	// The sheet's own "STEP n" / "OF 4" pair used to live here, labelling the
+	// row of four pips that counted the four tutorial pages. That row counts
+	// build steps now and is labelled with STR_C_BENCH_STEP above, so both are
+	// gone rather than left translated and unreachable.
 	STR_T_OPEN_TITLE,     // "OPEN THE BOX"
 	STR_T_OPEN_SUB,       // "Touch the red dot on the lid."
 	STR_T_OPEN_LIFTS,     // "it lifts off"

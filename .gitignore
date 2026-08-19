@@ -34,3 +34,6 @@ modelkit-update.cia
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Python bytecode from running tools/regress.py
+__pycache__/

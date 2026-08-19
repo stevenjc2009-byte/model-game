@@ -99,6 +99,28 @@ def check_flags_exist():
                if not re.search(rf"^#define {a['flag']} 0$", text, re.M)]
     if missing:
         fail("not in source/debug.h any more: " + ", ".join(missing))
+    check_no_audit_left_out(text)
+
+
+def check_no_audit_left_out(text):
+    """And every flag debug.h calls an audit must be named in AUDITS.
+
+    The other direction, and the one that actually bit. TEST_TOPSCREEN_AUDIT was
+    added to TEST_ANY_AUDIT and not to the list above, so the suite quietly ran
+    ten of eleven and printed "10/10 passed" - a table that looks complete is the
+    worst possible way to not run a check. debug.h says in as many words that a
+    new audit goes in both places; this is what makes that true rather than
+    hoped for.
+    """
+    block = re.search(r"^#define TEST_ANY_AUDIT \((.*?)\)$", text, re.M | re.S)
+    if not block:
+        fail("source/debug.h has no TEST_ANY_AUDIT block to cross-check against")
+    declared = set(re.findall(r"TEST_\w+", block.group(1)))
+    listed = {a["flag"] for a in AUDITS}
+    orphans = sorted(declared - listed)
+    if orphans:
+        fail("in TEST_ANY_AUDIT but missing from AUDITS in this file, so it would "
+             "never run: " + ", ".join(orphans))
 
 
 def powershell(*args):
