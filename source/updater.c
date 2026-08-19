@@ -265,6 +265,84 @@ static void applyCommonOptions(CURL* curl, const char* url)
 }
 
 // ---------------------------------------------------------------------------
+// Asking which release is current without touching the JSON API
+// ---------------------------------------------------------------------------
+//
+// api.github.com allows sixty unauthenticated requests an hour per IP address
+// and answers 403 to the sixty-first. That allowance is shared by everything on
+// the same connection, so an update check can fail for reasons that have
+// nothing to do with this console and then work an hour later on its own - the
+// "GitHub answered with HTTP 403" report, which retrying cannot help with.
+//
+// The plain release page has no such ceiling. /releases/latest answers 302 with
+// the tag in its Location header, which is the only thing the check needs, so
+// that is asked first and the API is kept as the fallback.
+
+// Pulls the version tag out of the URL /releases/latest redirects to. That URL
+// is .../releases/tag/v0.4.2, so the tag is simply what follows.
+static bool tagFromRedirect(const char* url, char* out, size_t outSize)
+{
+	static const char* const mark = "/releases/tag/";
+	if (!url) return false;
+
+	const char* found = strstr(url, mark);
+	if (!found) return false;
+
+	found += strlen(mark);
+	if (*found == '\0') return false;
+
+	snprintf(out, outSize, "%s", found);
+	return true;
+}
+
+// Builds the download URL from the tag rather than from a fixed filename,
+// because every release names its CIA after its own version - modelkit0.4.2.cia
+// at tag v0.4.2.
+//
+// The tag form is used in preference to /releases/latest/download/ so that a
+// release published between the check and the download cannot quietly hand over
+// a different version than the one the player was shown.
+static void buildAssetUrl(const char* tag, char* out, size_t outSize)
+{
+	const char* number = (tag[0] == 'v' || tag[0] == 'V') ? tag + 1 : tag;
+	snprintf(out, outSize, "https://github.com/%s/%s/releases/download/%s/modelkit%s.cia",
+	         MODELKIT_REPO_OWNER, MODELKIT_REPO_NAME, tag, number);
+}
+
+// Returns true only if GitHub redirected and the tag could be read out of it.
+// Anything else - no redirect, a transport error, a shape that has changed -
+// falls through to the API, which still works; it is only rationed.
+static bool checkViaRedirect(char* tag, size_t tagSize)
+{
+	char url[256];
+	snprintf(url, sizeof(url), "https://github.com/%s/%s/releases/latest",
+	         MODELKIT_REPO_OWNER, MODELKIT_REPO_NAME);
+
+	CURL* curl = curl_easy_init();
+	if (!curl) return false;
+
+	applyCommonOptions(curl, url);
+
+	// The redirect IS the answer here, so it must not be followed, and the page
+	// body it would lead to is of no interest.
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
+	curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+
+	CURLcode result = curl_easy_perform(curl);
+	long  status   = 0;
+	char* redirect = NULL;
+	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+	curl_easy_getinfo(curl, CURLINFO_REDIRECT_URL, &redirect);
+
+	// Read before cleanup - redirect points into the handle's own memory.
+	bool got = (result == CURLE_OK && status >= 300 && status < 400 &&
+	            tagFromRedirect(redirect, tag, tagSize));
+
+	curl_easy_cleanup(curl);
+	return got;
+}
+
+// ---------------------------------------------------------------------------
 // The two jobs
 // ---------------------------------------------------------------------------
 
@@ -284,6 +362,27 @@ static void runCheck(void)
 
 	setMessage("Asking GitHub for the latest release...");
 	s_state = UPDATE_CHECKING;
+
+	// The unrationed route first. When it answers there is no API request at
+	// all, so a check cannot be spent out of an allowance shared with whatever
+	// else is on the same connection.
+	char redirectTag[32] = { 0 };
+	if (checkViaRedirect(redirectTag, sizeof(redirectTag)))
+	{
+		snprintf(s_latest, sizeof(s_latest), "%s", redirectTag);
+
+		if (!versionIsNewer(redirectTag, MODELKIT_VERSION))
+		{
+			setMessage("This is the newest version.");
+			s_state = UPDATE_UP_TO_DATE;
+			return;
+		}
+
+		buildAssetUrl(redirectTag, s_assetUrl, sizeof(s_assetUrl));
+		setMessage("A newer version is available.");
+		s_state = UPDATE_AVAILABLE;
+		return;
+	}
 
 	char url[256];
 	snprintf(url, sizeof(url),
