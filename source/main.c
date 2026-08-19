@@ -2563,6 +2563,15 @@ static void slidePadRight(int frames)
 	}
 }
 
+// The three framings the game snaps the view to, by index, so the slide case
+// below can run the same body against each instead of three near-copies.
+static void applyFramingByIndex(int i)
+{
+	if      (i == 0) frameWorkbenchCamera();
+	else if (i == 1) frameRunnerCamera();
+	else             frameAssemblyCamera();
+}
+
 static void runCameraPanAudit(void)
 {
 	// Four bench angles, including the two the yaw sign would disagree on, so a
@@ -2604,7 +2613,83 @@ static void runCameraPanAudit(void)
 		(int)(focus[0] * 100.0f), (int)(focus[2] * 100.0f), clamped ? "OK" : "FAIL");
 	if (!clamped) ok = false;
 
+	// A framing is a fresh start, and every one of them has to agree about that.
+	// frameWorkbenchCamera has always dropped the slide; the runner and assembly
+	// framings did not, so a pan made while working one kit was still in force
+	// after the view snapped to the next thing, and the model sat off to one
+	// side of the framing meant to centre it until the player panned it back.
+	//
+	// Measured as where the marker lands after each framing, panned against not
+	// panned - not by reading camPanX/camPanZ back, which would only restate the
+	// assignment and would still pass if something downstream put the slide back.
+	static const char* frameName[3] = { "work", "runner", "assembly" };
+	for (int i = 0; i < 3; ++i) {
+		bool seenClean, seenPanned;
+		float clean, panned;
+
+		// Reference: this framing reached with no pan outstanding.
+		camPanX = camPanZ = 0.0f;
+		applyFramingByIndex(i);
+		for (int f = 0; f < 60; ++f) updateFocus();
+		clean = panMarkerScreenX(&seenClean);
+
+		// The same framing, reached with the view slid hard along the bench.
+		frameWorkbenchCamera();
+		slidePadRight(120);
+		for (int f = 0; f < 30; ++f) updateFocus();
+		applyFramingByIndex(i);
+		for (int f = 0; f < 60; ++f) updateFocus();
+		panned = panMarkerScreenX(&seenPanned);
+
+		bool pass = seenClean && seenPanned && fabsf(panned - clean) < 1.0f;
+		printf("PAN frame %-8s x %d vs %d %s\n", frameName[i],
+			(int)clean, (int)panned, pass ? "OK" : "FAIL");
+		if (!pass) ok = false;
+	}
+
+	// The bench has an underside. PITCH_LIMIT only ever caught the view rolling
+	// over the top of it; pulling down had no floor, so a hard drag put the
+	// camera below the desk and the mat was seen through the table.
+	//
+	// Judged on where the camera actually ends up, not on the angle: the floor
+	// is only worth anything if it leaves the eye higher than the old
+	// unrestrained drag did.
+	C3D_Mtx view;
+	float deepEye[3], lowEye[3];
+
+	camPanX = camPanZ = 0.0f;
+	frameWorkbenchCamera();
+	angleX = -PITCH_LIMIT;              // where the old clamp let a drag finish
+	for (int f = 0; f < 60; ++f) updateFocus();
+	buildModelView(&view);
+	cameraWorldPosition(&view, deepEye);
+
+	frameWorkbenchCamera();
+	for (int f = 0; f < 400; ++f) { angleX -= 0.02f; clampCameraPitch(); }
+	float lowPitch = angleX;
+	for (int f = 0; f < 60; ++f) updateFocus();
+	buildModelView(&view);
+	cameraWorldPosition(&view, lowEye);
+
+	// Judged on the eye, not the angle. A flat floor of zero passes an
+	// angle test and still leaves the camera 0.55 under the desk, which is how
+	// this case was written the first time and what the numbers threw out.
+	bool floored = lowPitch >= PITCH_FLOOR - 0.001f && lowEye[1] >= MAT_TOP - 0.001f;
+	printf("PAN pitch floor=%d eye %d vs %d (mat %d) %s\n",
+		(int)(lowPitch * 100.0f), (int)(deepEye[1] * 100.0f),
+		(int)(lowEye[1] * 100.0f), (int)(MAT_TOP * 100.0f), floored ? "OK" : "FAIL");
+	if (!floored) ok = false;
+
+	// Control: the end that was already right must stay right. A drag up still
+	// stops at PITCH_LIMIT, and this case was green before the floor existed.
+	frameWorkbenchCamera();
+	for (int f = 0; f < 400; ++f) { angleX += 0.02f; clampCameraPitch(); }
+	bool rolled = angleX <= PITCH_LIMIT + 0.001f;
+	printf("PAN pitch roll=%d %s\n", (int)(angleX * 100.0f), rolled ? "OK" : "FAIL");
+	if (!rolled) ok = false;
+
 	printf("PAN AUDIT %s\n", ok ? "PASS" : "FAIL");
+	camPanX = camPanZ = 0.0f;
 	frameWorkbenchCamera();
 }
 #else
@@ -6576,9 +6661,10 @@ static bool gameUpdateFrame(void)
 			if (camDist < nearLimit)      camDist = nearLimit;
 			if (camDist > CAM_FAR_LIMIT)  camDist = CAM_FAR_LIMIT;
 
-			// Stop the view rolling over the top or under the bottom of the bench
-			if (angleX >  PITCH_LIMIT) angleX =  PITCH_LIMIT;
-			if (angleX < -PITCH_LIMIT) angleX = -PITCH_LIMIT;
+			// Stop the view rolling over the top of the bench, or dropping under
+			// the desk top. Both ends live in camera.c so the pan audit can drive
+			// the same clamp the Circle Pad drives - see clampCameraPitch.
+			clampCameraPitch();
 		}
 		// Not while a verification flag is on: the state a harness has staged is
 		// not a build anybody made, and this is the line that would fold it into

@@ -173,6 +173,10 @@ void frameRunnerCamera(void)
 	// The flat runner is wider than the finished model; back out just enough
 	// to retain the rails, loose-part area, mat and stand in one working view.
 	camDist = 4.75f;
+	// Same reason frameWorkbenchCamera drops the slide: this is a fresh framing,
+	// and a pan left standing from the last thing the player was looking at
+	// would push the rails off the side of the view they were just snapped to.
+	camPanX = camPanZ = 0.0f;
 	camWorkZoom = 0.0f;
 	focus[0] = meshRunnerX();
 	focus[1] = MAT_TOP + 0.24f;
@@ -187,7 +191,61 @@ void frameAssemblyCamera(void)
 	angleX = 0.74f;
 	angleY = 3.4915927f;
 	camDist = 4.35f;
+	// "Centred" has to mean centred. updateFocus adds the slide to whatever
+	// centre it derives, so a pan carried in from the runner view would leave
+	// the model sitting off to one side of the framing meant to centre it.
+	camPanX = camPanZ = 0.0f;
 	camWorkZoom = 0.0f;
+}
+
+// The lowest pitch that still leaves the camera on top of the desk.
+//
+// This started as a flat PITCH_FLOOR and the measurement threw it out: at the
+// opening framing, pitch zero puts the eye at y -1.86 against a mat top of
+// -1.31, so a constant floor of zero still hands the player half a foot of
+// looking up through the table. The angle it actually goes under at is not a
+// constant either - it moves with how far back the zoom is standing and with
+// how much of the scene lift is still in force.
+//
+// So solve it rather than pick a number. cameraOffsetVecAt puts the eye at
+// dist*sin(p) - lift*cos(p) above the pivot, which is R*sin(p - phi) with
+// R = hypot(dist, lift) and phi = atan2(lift, dist); the lowest p that keeps
+// that at or above the mat is phi + asin(need/R). Closed form because this runs
+// in the input path every frame that the Circle Pad is touched.
+static float lowestPitchAboveDesk(void)
+{
+	float lift = SCENE_LIFT * (1.0f - focusAmt);
+	float dist = camStand();
+	float need = MAT_TOP - focus[1];   // how far below the pivot the desk top is
+	float r    = sqrtf(dist * dist + lift * lift);
+	if (r < 0.0001f) return PITCH_FLOOR;
+
+	float s = need / r;
+	// A pivot so far above the desk that no pitch can get under it, or so far
+	// below that none can get over it: asin is undefined either side, and the
+	// hard floor is the right answer for both.
+	if (s < -1.0f || s > 1.0f) return PITCH_FLOOR;
+
+	float p = atan2f(lift, dist) + asinf(s);
+	return p < PITCH_FLOOR ? PITCH_FLOOR : p;
+}
+
+// Pitch is bounded at both ends, and for two different reasons.
+//
+// PITCH_LIMIT stops the view rolling over the top of the bench. It never
+// stopped the other end: a hard drag down ran to -PITCH_LIMIT and put the eye
+// at y -6.68, well under the desk, and the mat was seen through the underside
+// of the table. That is the same thing the low photo preset is held at 0.06 to
+// avoid, and the preset is why it was noticed there first.
+void clampCameraPitch(void)
+{
+	float floorNow = lowestPitchAboveDesk();
+	// Never at the cost of the other limit: if the two ever met, rolling over
+	// the top would be the worse of the two views to be forced into.
+	if (floorNow > PITCH_LIMIT) floorNow = PITCH_LIMIT;
+
+	if (angleX > PITCH_LIMIT) angleX = PITCH_LIMIT;
+	if (angleX < floorNow)    angleX = floorNow;
 }
 
 // How far the camera sits from the point it is looking at, as a vector.

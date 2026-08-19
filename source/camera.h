@@ -18,15 +18,17 @@
 #include <stdbool.h>
 
 // Player zoom/orbit limits. CAM_NEAR_LIMIT and CAM_FAR_LIMIT bound the
-// shoulder-button zoom in main.c's input handling; PITCH_LIMIT bounds the
-// Circle Pad tilt there too. CAM_NEAR_FOCUS is how close the near limit is
-// allowed to come in once a part has been locked onto. CAM_START is the very
-// first camDist, before frameWorkbenchCamera has ever run. CAM_BLOCK_SKIN
-// only matters inside this file's own furniture-blocking search.
+// shoulder-button zoom in main.c's input handling; PITCH_LIMIT and PITCH_FLOOR
+// bound the Circle Pad tilt there too, through clampCameraPitch below.
+// CAM_NEAR_FOCUS is how close the near limit is allowed to come in once a part
+// has been locked onto. CAM_START is the very first camDist, before
+// frameWorkbenchCamera has ever run. CAM_BLOCK_SKIN only matters inside this
+// file's own furniture-blocking search.
 #define CAM_NEAR_LIMIT 1.8f
 #define CAM_FAR_LIMIT  6.5f
 #define CAM_START      4.25f
 #define PITCH_LIMIT    1.45f
+#define PITCH_FLOOR    0.0f
 #define CAM_BLOCK_SKIN 0.05f
 #define CAM_NEAR_FOCUS 1.0f
 
@@ -54,6 +56,12 @@ void frameWorkbenchCamera(void);
 void framePhotoCamera(void);
 void frameRunnerCamera(void);
 void frameAssemblyCamera(void);
+
+// Hold the orbit pitch between PITCH_FLOOR and PITCH_LIMIT. Lives here rather
+// than inline in main.c's input handling so the pan audit can drive the same
+// two lines the Circle Pad drives, instead of a second copy free to disagree
+// with them.
+void clampCameraPitch(void);
 
 // The pivot and blend amount frameWorkbenchCamera opens on, and updateFocus
 // (in main.c) eases back to whenever nothing more specific has claimed the
