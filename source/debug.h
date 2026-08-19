@@ -185,6 +185,14 @@
 #ifndef TEST_TOPSCREEN_AUDIT
 #define TEST_TOPSCREEN_AUDIT 0
 #endif
+// Runs runWorkZoomAudit(): checks the camera leans in on a small part while it
+// is being filed, gives the distance back exactly when the filing is done, and
+// leaves everything else - a large part, photo mode - alone. Also prints the
+// largest and smallest part of all twenty kits, which is what the rule for
+// "small" is judged against.
+#ifndef TEST_WORKZOOM_AUDIT
+#define TEST_WORKZOOM_AUDIT 0
+#endif
 
 // True when any flag above is on - which is to say, when this build is a
 // verification pass rather than the game.
@@ -209,7 +217,8 @@
 	TEST_CAMERA_PAN_AUDIT || TEST_CEILING_AUDIT || TEST_COLLISION_AUDIT || \
 	TEST_POSE_PART || TEST_ATLAS_GRADIENT || TEST_HINT_AUDIT || \
 	TEST_HINT_TOUR || TEST_PAINT_AUDIT || TEST_SAVELOAD_AUDIT || \
-	TEST_SAVELOAD_TOUR || TEST_UNDO_AUDIT || TEST_TOPSCREEN_AUDIT)
+	TEST_SAVELOAD_TOUR || TEST_UNDO_AUDIT || TEST_TOPSCREEN_AUDIT || \
+	TEST_WORKZOOM_AUDIT)
 
 // The subset of the flags above that answer in words rather than in pictures.
 //
@@ -226,4 +235,4 @@
 	TEST_LEVEL1_WORKSPACE_AUDIT || TEST_CAMERA_PAN_AUDIT || \
 	TEST_CEILING_AUDIT || TEST_COLLISION_AUDIT || TEST_HINT_AUDIT || \
 	TEST_PAINT_AUDIT || TEST_SAVELOAD_AUDIT || TEST_UNDO_AUDIT || \
-	TEST_TOPSCREEN_AUDIT)
+	TEST_TOPSCREEN_AUDIT || TEST_WORKZOOM_AUDIT)

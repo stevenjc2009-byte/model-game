@@ -39,6 +39,11 @@
 // this state lived in main.c.
 extern float angleX, angleY;
 extern float camDist;
+// An automatic lean-in on top of camDist, in world units, while a small part
+// is being filed. Written by updateFocus in main.c, spent by this file. Kept
+// apart from camDist so that letting go of the work restores the player's own
+// distance exactly rather than approximately. Zero at every framing.
+extern float camWorkZoom;
 extern float focus[3];
 extern float focusAmt;
 extern float camPanX, camPanZ;
@@ -59,6 +64,12 @@ void benchPivot(float out[3], float* amt);
 // whenever the blocker list can have changed shape - a new kit's box stack -
 // never during play.
 void refreshBlockers(void);
+
+// How far back the camera is actually standing right now - camDist less any
+// automatic lean-in, floored the same way the view matrix floors it. The
+// number to check when the question is where the camera ended up rather than
+// where the player asked it to be.
+float cameraStandDistance(void);
 
 void buildModelView(C3D_Mtx* out);
 void buildRunnerView(C3D_Mtx* out, const C3D_Mtx* modelView);

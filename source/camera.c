@@ -22,6 +22,33 @@ float boxStage(float start, float end);
 float angleX = 0.70f, angleY = 3.4915927f;
 float camDist = CAM_START;
 
+// How much closer the camera stands than camDist while a small part is being
+// worked on, in world units. Held separately from camDist rather than written
+// into it so that the way back out is exact: the player's own zoom is never
+// touched, so when the work finishes and this eases back to zero the view
+// returns to the distance they chose, not to something close to it.
+//
+// main.c owns the value - updateFocus decides how much of a lean-in the part
+// deserves and eases this towards it. Everything here just spends it.
+float camWorkZoom = 0.0f;
+
+// The distance the camera actually stands back at. Every place that used to
+// read camDist goes through this, so the furniture-blocking search, the
+// pitch-lift search and the view matrix all agree about where the camera is -
+// a lean-in the block test did not know about would let the camera slide into
+// the desk.
+//
+// Floored at CAM_NEAR_FOCUS, which is the closest the player's own zoom may
+// come once locked onto a part; there is no reason for an automatic lean-in to
+// go anywhere they could not.
+static float camStand(void)
+{
+	float d = camDist - camWorkZoom;
+	return d < CAM_NEAR_FOCUS ? CAM_NEAR_FOCUS : d;
+}
+
+float cameraStandDistance(void) { return camStand(); }
+
 // What the camera turns and zooms around. With nothing selected it sits at
 // the middle of the bench; select a part and it eases across to that part,
 // so from then on the view orbits the thing being worked on. focusAmt is how
@@ -88,6 +115,7 @@ void frameWorkbenchCamera(void)
 	// A framing is a fresh start, so the slide goes with it. Left standing, a
 	// pan from the last kit would push the opening shot off the bench.
 	camPanX = camPanZ = 0.0f;
+	camWorkZoom = 0.0f;
 	benchPivot(focus, &focusAmt);
 }
 
@@ -129,6 +157,9 @@ void framePhotoCamera(void)
 	angleX = p->pitch;
 	angleY = p->yaw;
 	camDist = p->dist;
+	// A photograph is framed by its preset alone; a lean-in left over from the
+	// part that was being filed when the player pressed the shutter would crop it.
+	camWorkZoom = 0.0f;
 	focus[0] = meshStandX();
 	focus[1] = MAT_TOP + p->lift;
 	focus[2] = meshStandZ();
@@ -142,6 +173,7 @@ void frameRunnerCamera(void)
 	// The flat runner is wider than the finished model; back out just enough
 	// to retain the rails, loose-part area, mat and stand in one working view.
 	camDist = 4.75f;
+	camWorkZoom = 0.0f;
 	focus[0] = meshRunnerX();
 	focus[1] = MAT_TOP + 0.24f;
 	focus[2] = meshRunnerZ();
@@ -155,6 +187,7 @@ void frameAssemblyCamera(void)
 	angleX = 0.74f;
 	angleY = 3.4915927f;
 	camDist = 4.35f;
+	camWorkZoom = 0.0f;
 }
 
 // How far the camera sits from the point it is looking at, as a vector.
@@ -168,9 +201,10 @@ static void cameraOffsetVecAt(float pitch, float out[3])
 	float cx = cosf(pitch), sx = sinf(pitch);
 	float cy = cosf(angleY), sy = sinf(angleY);
 	float lift = SCENE_LIFT * (1.0f - focusAmt);
-	out[0] = -lift*sx*sy - camDist*cx*sy;
-	out[1] = -lift*cx    + camDist*sx;
-	out[2] =  lift*sx*cy + camDist*cx*cy;
+	float dist = camStand();
+	out[0] = -lift*sx*sy - dist*cx*sy;
+	out[1] = -lift*cx    + dist*sx;
+	out[2] =  lift*sx*cy + dist*cx*cy;
 }
 
 // The blocker list, copied out once per kit rather than asked for per test.
@@ -287,7 +321,8 @@ static float cameraBlockFractionAt(float pitch)
 // out.
 static float cameraWantedStand(void)
 {
-	return camDist < CAM_NEAR_LIMIT ? camDist : CAM_NEAR_LIMIT;
+	float dist = camStand();
+	return dist < CAM_NEAR_LIMIT ? dist : CAM_NEAR_LIMIT;
 }
 
 // Look down over the obstacle rather than collapse onto the pivot.
@@ -324,7 +359,7 @@ static float cameraViewPitch(float* fraction)
 	float want = cameraWantedStand();
 	float best = angleX;
 	float bestFrac = cameraBlockFractionAt(angleX);
-	float bestStand = bestFrac * camDist;
+	float bestStand = bestFrac * camStand();
 	if (bestStand >= want) { *fraction = bestFrac; return angleX; }
 
 	// The search used to stop at the room ceiling. Behind a shut kit box that
@@ -339,7 +374,7 @@ static float cameraViewPitch(float* fraction)
 		if (pitch > PITCH_LIMIT) break;
 
 		float frac  = cameraBlockFractionAt(pitch);
-		float stand = frac * camDist;
+		float stand = frac * camStand();
 		if (stand > bestStand) { bestStand = stand; bestFrac = frac; best = pitch; }
 		if (stand >= want) { *fraction = frac; return pitch; }
 	}
@@ -365,7 +400,7 @@ void buildModelView(C3D_Mtx* out)
 	// tested against still cannot disagree.
 	float s;
 	float pitch = cameraViewPitch(&s);
-	Mtx_Translate(out, 0.0f, s * SCENE_LIFT * (1.0f - focusAmt), -s * camDist, true);
+	Mtx_Translate(out, 0.0f, s * SCENE_LIFT * (1.0f - focusAmt), -s * camStand(), true);
 	Mtx_RotateX(out, pitch, true);
 	Mtx_RotateY(out, angleY, true);
 	Mtx_Translate(out, -focus[0], -focus[1], -focus[2], true);

@@ -1927,6 +1927,65 @@ static bool runnerStillHolding(void)
 	return false;
 }
 
+// How small a part has to be before the camera leans in to help with the
+// filing, and how far it is allowed to lean.
+//
+// The two sizes are read straight off the game: TEST_WORKZOOM_AUDIT prints the
+// longest edge of the largest and smallest part of all twenty kits, and the
+// smallest runs 0.14 to 0.49 world units while the largest runs 0.77 to 1.85.
+// The two ranges do not overlap anywhere, so one pair of thresholds separates
+// the fiddly pieces from the structural ones in every kit in the game. At 0.60
+// and above there is no lean at all; at 0.15 and below there is all of it; in
+// between it comes on smoothly, so there is no size at which selecting one part
+// jumps the view and the next-smallest does not.
+//
+// This is judged on the part's own size, having first been judged against the
+// biggest part in the same kit. Relative was wrong for exactly the kits that
+// need it most: level 20 runs 0.49 to 0.94, so its smallest piece is more than
+// half its largest and got nothing - while standing 26 px tall on the bottom
+// screen, which is precisely the piece that is hard to file.
+#define WORK_SMALL_EXTENT 0.60f
+#define WORK_TINY_EXTENT  0.15f
+// In world units, taken off whatever distance the player is already at. Against
+// the 4.35 the assembly framing opens on, the full lean is 4.35 -> 3.15, which
+// makes the part about 38% bigger on screen: enough to file against, not so
+// much that the rest of the bench stops being readable.
+#define WORK_ZOOM_MAX     1.20f
+
+// The longest edge of a part's tap box - the part at the size the player sees
+// it once it is off the frame. Always the authored box, never the packed
+// runner one, so that "the biggest part in this kit" is the same number all the
+// way through a build instead of shrinking as pieces are cut free.
+static float partLongestExtent(int index)
+{
+	const meshPart* p = &meshParts()[index];
+	float longest = 0.0f;
+	for (int a = 0; a < 3; a++)
+	{
+		float e = p->max[a] - p->min[a];
+		if (e > longest) longest = e;
+	}
+	return longest;
+}
+
+// How far the camera should lean in for the piece in hand.
+//
+// Nothing at all unless there is a part selected, it still has a nub to file,
+// and it is small for this kit. That gate is also what takes the lean back out:
+// canFile stops being true the instant filed reaches 1, so finishing the job is
+// itself the signal to ease back to the distance the player chose. Nothing has
+// to remember what that distance was, because camDist was never touched.
+static float workZoomWanted(void)
+{
+	if (photoMode || selectedPart < 0 || !canFile(selectedPart)) return 0.0f;
+
+	float t = (WORK_SMALL_EXTENT - partLongestExtent(selectedPart))
+	        / (WORK_SMALL_EXTENT - WORK_TINY_EXTENT);
+	if (t <= 0.0f) return 0.0f;
+	if (t > 1.0f) t = 1.0f;
+	return WORK_ZOOM_MAX * t;
+}
+
 // Slides the camera's pivot onto whatever is selected, and back to the middle
 // of the bench when nothing is. Worked out fresh every frame rather than once
 // on selection, because a part that has just been snipped is still on its way
@@ -1938,6 +1997,15 @@ static void updateFocus(void)
 	// closed-box easing overwrite it while Azahar waits to take the still.
 	return;
 	#endif
+	// Photo mode's framings are authored too - a pitch, a yaw, a distance and a
+	// pivot picked for the picture - and they were being eased out from under
+	// the moment they were set. framePhotoCamera runs on the button press only,
+	// while this runs every frame, so the composed shot slid back towards the
+	// ordinary working pivot at 0.16 of the remaining distance a frame: about a
+	// second to lose the framing, and the same again after every press of X.
+	// The guard above says exactly this about a capture camera; a photograph the
+	// player is taking has the same claim on the view.
+	if (photoMode) return;
 	// Same pivot the opening framing uses, from the same place, so the ease
 	// holds the view it was given instead of hauling it somewhere else.
 	float want[3];
@@ -2016,6 +2084,10 @@ static void updateFocus(void)
 	for (int a = 0; a < 3; a++)
 		focus[a] += (want[a] - focus[a]) * FOCUS_EASE;
 	focusAmt += (wantAmt - focusAmt) * FOCUS_EASE;
+
+	// The lean-in rides the same ease as the pivot, so picking up a small part
+	// and finishing it are one continuous move rather than two separate ones.
+	camWorkZoom += (workZoomWanted() - camWorkZoom) * FOCUS_EASE;
 }
 
 #if TEST_CAMERA_IDLE_AUDIT
@@ -2047,6 +2119,130 @@ static void runCameraIdleAudit(void)
 }
 #else
 static void runCameraIdleAudit(void) { }
+#endif
+
+#if TEST_WORKZOOM_AUDIT
+// The camera leans in on a small part while it is being filed, and lets go the
+// moment the filing is done. Four cases, and what each is here for:
+//
+//   S  a small part gets a real lean-in - the camera ends up measurably nearer
+//      than the distance the player is at. This is the case the feature exists
+//      for, and the one that goes red if the lean is taken out.
+//   R  finishing the file gives that distance back exactly. Gated on S, so a
+//      build with no lean at all cannot pass this by never having moved.
+//   B  the biggest part in the same kit gets nothing.
+//   P  photo mode gets nothing either, small part or not.
+//
+// B and P are green whether the feature is on or off, so a build that failed to
+// run the audit at all cannot look like a detection.
+//
+// It also prints the largest and smallest part of every kit, because "small" is
+// judged against the kit rather than in world units and these are the numbers
+// that rule is being applied to.
+static int workZoomSmallestPart(int* biggestOut)
+{
+	int small = 0;
+	float smallExt = 1e9f, bigExt = -1.0f;
+	*biggestOut = 0;
+	for (int i = 0; i < meshPartCount(); i++)
+	{
+		float e = partLongestExtent(i);
+		if (e < smallExt) { smallExt = e; small = i; }
+		if (e > bigExt)   { bigExt  = e; *biggestOut = i; }
+	}
+	return small;
+}
+
+// Long enough for the 0.16 ease to have arrived: 240 frames leaves 0.84^240 of
+// the gap, which is nothing a float can still hold.
+static void workZoomSettle(void)
+{
+	for (int f = 0; f < 240; f++) updateFocus();
+}
+
+static void runWorkZoomAudit(void)
+{
+	// Every kit in the game, not just the one the behaviour cases run on: the
+	// smallest part of each has to get some help and the largest none. The rule
+	// was relative to the kit first, and this is the case that caught it - level
+	// 20's smallest part is more than half its largest, so it scored zero while
+	// still being one of the smaller things in the game to file.
+	bool a = true;
+	for (int level = 1; level <= MESH_KIT_LEVELS; level++)
+	{
+		sceneLoadKit(level);
+		memset(partStates, 0, sizeof(partStates));
+		photoMode = false;
+		int big;
+		int small = workZoomSmallestPart(&big);
+		partStates[small].cut = partStates[big].cut = true;
+		selectedPart = small;
+		float leanSmall = workZoomWanted();
+		selectedPart = big;
+		float leanBig = workZoomWanted();
+		if (leanSmall <= 0.05f || leanBig != 0.0f) a = false;
+		printf("WZ L%-2d small=%.3f->%.2f big=%.3f->%.2f\n", level,
+			partLongestExtent(small), leanSmall, partLongestExtent(big), leanBig);
+	}
+
+	sceneLoadKit(1);
+	memset(partStates, 0, sizeof(partStates));
+	cutCount = filedCount = builtCount = currentRunner = 0;
+	boxOpen = 1.0f; runnerLift = 1.0f; boxOpening = false;
+	selectedPart = -1; photoMode = false;
+	frameAssemblyCamera();
+
+	int big;
+	int small = workZoomSmallestPart(&big);
+	float rest = cameraStandDistance();
+
+	// Everything off the frame, so both parts under test are filed-eligible.
+	for (int i = 0; i < meshPartCount(); i++) partStates[i].cut = true;
+
+	selectedPart = small;
+	workZoomSettle();
+	float leaned = cameraStandDistance();
+	bool s = (rest - leaned) >= 0.30f;
+
+	partStates[small].filed = 1.0f;
+	partStates[small].smooth = true;
+	workZoomSettle();
+	float back = cameraStandDistance();
+	bool r = s && fabsf(back - rest) < 0.01f;
+
+	selectedPart = big;
+	workZoomSettle();
+	float bigStand = cameraStandDistance();
+	bool b = fabsf(bigStand - rest) < 0.01f;
+
+	// Photo mode entered the way the player enters it, with a small part still
+	// selected: the shot must not be leaned in, and the authored framing must
+	// still be there after a couple of hundred frames rather than eased away.
+	partStates[small].filed = 0.0f;
+	partStates[small].smooth = false;
+	selectedPart = small;
+	photoMode = true;
+	framePhotoCamera();
+	float photoDist = camDist, photoPitch = angleX, photoAmt = focusAmt;
+	workZoomSettle();
+	bool p = camWorkZoom < 0.01f
+	      && camDist == photoDist && angleX == photoPitch && focusAmt == photoAmt;
+	photoMode = false;
+
+	printf("WZ rest=%.3f leaned=%.3f back=%.3f big=%.3f photolean=%.3f amt=%.3f\n",
+		rest, leaned, back, bigStand, camWorkZoom, focusAmt);
+	printf("WORKZOOM AUDIT %c%c%c%c%c %s\n",
+		s ? 'S' : '-', r ? 'R' : '-', b ? 'B' : '-', p ? 'P' : '-', a ? 'A' : '-',
+		(s && r && b && p && a) ? "PASS" : "FAIL");
+
+	sceneLoadKit(1);
+	memset(partStates, 0, sizeof(partStates));
+	cutCount = filedCount = builtCount = currentRunner = 0;
+	boxOpen = runnerLift = 0.0f; boxOpening = false; selectedPart = -1;
+	frameWorkbenchCamera();
+}
+#else
+static void runWorkZoomAudit(void) { }
 #endif
 
 #if TEST_CAMERA_PAN_AUDIT
@@ -3514,6 +3710,22 @@ static void serviceTopRepaint(bool isNew3DS, bool menuIsOpen)
 static int  benchSettle = 0;
 static bool benchSeenUp = false;
 
+// Hands the bench back to the stylus from scratch: nothing on the touch screen
+// is believed until the settling frames have passed and the stylus has been
+// seen up at least once.
+//
+// Used wherever something else has had the screen for a while, because
+// lastTouch is not refreshed on the frames the bench is not reading it. A
+// stylus still down when the bench came back - through the pause menu is the
+// easy way to do it, since SELECT is a button and the stylus is not - left the
+// next frame comparing a fresh position against one from before the menu
+// opened, and the view snapped round by the whole of that travel in one frame.
+static void benchHandBack(void)
+{
+	benchSettle = BENCH_SETTLE_FRAMES;
+	benchSeenUp = false;
+}
+
 // Both ways into a level go through here: the level-select tile and the
 // straight-to-level test builds. One function rather than two copies of the
 // same five lines, because two copies of the camera pivot is exactly how the
@@ -3534,10 +3746,16 @@ static void enterLevel(int level, bool isNew3DS)
 	previewLoadedKit = 0;
 	loadLevelState(level);
 	frameWorkbenchCamera();
+	// Photo mode is a way of looking at a finished model, not a state to carry
+	// into the next kit. Quitting to the level select from inside it left it on,
+	// and since the top screen's manual, beginner sheet and live counters are all
+	// gated behind it being off, the next level opened with a blank top screen
+	// until the player happened to press Y - which reads as the game failing to
+	// draw rather than as a mode still being on.
+	photoMode = false;
 	printStaticInfo(isNew3DS);
 
-	benchSettle = BENCH_SETTLE_FRAMES;
-	benchSeenUp = false;
+	benchHandBack();
 
 	// Start the two-minute clock from the moment the bench appears. Without this
 	// the deadline is still zero and the first frame of the first level would
@@ -4995,13 +5213,14 @@ static bool menuInput(u32 kDown, bool isNew3DS)
 		{
 			menuOn = PAGE_NONE;
 			loadArmed = false;
+			benchHandBack();
 			queueTopRepaint(TOP_REPAINT_LEVEL);
 		}
 		else if (kDown & KEY_A)
 		{
 			switch (menuCursor)
 			{
-				case 0: menuOn = PAGE_NONE; queueTopRepaint(TOP_REPAINT_LEVEL); break;
+				case 0: menuOn = PAGE_NONE; benchHandBack(); queueTopRepaint(TOP_REPAINT_LEVEL); break;
 				case MENU_ROW_SAVE: menuSaveNow(); break;
 				case MENU_ROW_LOAD: menuLoadNow(); break;
 				// Rebuilt on entry rather than once at boot: it is twelve
@@ -5192,6 +5411,7 @@ static int gameInit(void)
 	runSaveLoadAudit();
 	runUndoAudit();
 	runTopScreenAudit(isNew3DS);
+	runWorkZoomAudit();
 	#if TEST_SAVELOAD_AUDIT
 	// Same hold the other console-output audits use: the frame loop paints over
 	// the top screen within one frame, and this output has to survive long

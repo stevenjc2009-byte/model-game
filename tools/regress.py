@@ -81,6 +81,8 @@ AUDITS = [
          verdict=r"^UNDO AUDIT .*$",               passing=r"PASS\s*$"),
     dict(name="topscreen", flag="TEST_TOPSCREEN_AUDIT",
          verdict=r"^TOPSCREEN AUDIT .*$",          passing=r"PASS\s*$"),
+    dict(name="workzoom",  flag="TEST_WORKZOOM_AUDIT",
+         verdict=r"^WORKZOOM AUDIT .*$",           passing=r"PASS\s*$"),
 ]
 
 # Three of the audits hold their output on screen for fifteen seconds so a person
