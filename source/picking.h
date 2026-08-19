@@ -66,6 +66,28 @@ bool projectBox(const C3D_Mtx* mvp, const float min[3], const float max[3],
 	const float offset[3], float pad[3], float* outMinX, float* outMinY,
 	float* outMaxX, float* outMaxY, float* nearW);
 
+// Where a part's tap box lands on the touch screen, in the picker's own terms -
+// the same rect pickPart tests the stylus against, before any allowance. False
+// if the part is not in play this frame (still on another runner, or the kit box
+// has not opened yet) or is entirely behind the camera.
+//
+// Public only so that TEST_PICKPAD_AUDIT can aim its samples at real parts. A
+// second copy of this in the audit would be free to drift away from the picker
+// and then agree with itself about the wrong boxes.
+bool pickPartScreenRect(const C3D_Mtx* modelView, int index,
+	float* outMinX, float* outMinY, float* outMaxX, float* outMaxY, float* nearW);
+
+// How many touch-screen pixels of allowance a part's box gets, given how many
+// pixels across it already is. See picking.c for the rules that keep this from
+// stealing taps from neighbouring parts.
+float pickPadPixels(float extent);
+
+// How much of that allowance is actually applied, 0 or 1. Ships at 1 and is only
+// ever moved by TEST_PICKPAD_AUDIT, which has to ask the real picker the same
+// question with the allowance switched off - that answer is the reference "no
+// tap changed hands" is measured against.
+extern float pickPadScale;
+
 int  pickGate(const C3D_Mtx* modelView, int tx, int ty);
 bool pickKitBox(const C3D_Mtx* modelView, int tx, int ty);
 int  pickPart(const C3D_Mtx* modelView, int tx, int ty);

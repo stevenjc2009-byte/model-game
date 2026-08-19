@@ -11,7 +11,7 @@ Homebrew, written in C against devkitARM, citro3d and citro2d.
 Scan the **QR code at the bottom of this page** with **FBI → Remote Install →
 Scan QR Code** and the console downloads and installs it on its own.
 
-Or download [`modelkit0.4.5.cia`](https://github.com/stevenjc2009-byte/model-game/releases/download/v0.4.5/modelkit0.4.5.cia)
+Or download [`modelkit0.4.6.cia`](https://github.com/stevenjc2009-byte/model-game/releases/download/v0.4.6/modelkit0.4.6.cia)
 and install it with FBI the usual way.
 
 **Requirements**
@@ -94,4 +94,4 @@ Aim the **rear** camera at this from roughly nine inches away, in
 
 ![Install QR code](docs/install-qr.png)
 
-Installs **v0.4.5**.
+Installs **v0.4.6**.

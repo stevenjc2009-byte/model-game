@@ -193,6 +193,12 @@
 #ifndef TEST_WORKZOOM_AUDIT
 #define TEST_WORKZOOM_AUDIT 0
 #endif
+// Runs runPickPadAudit(): checks that growing every part's tap box a few pixels
+// makes the small pieces easier to hit without ever taking a tap off the part
+// the stylus was actually on. Console output only; nothing is drawn.
+#ifndef TEST_PICKPAD_AUDIT
+#define TEST_PICKPAD_AUDIT 0
+#endif
 
 // True when any flag above is on - which is to say, when this build is a
 // verification pass rather than the game.
@@ -218,7 +224,7 @@
 	TEST_POSE_PART || TEST_ATLAS_GRADIENT || TEST_HINT_AUDIT || \
 	TEST_HINT_TOUR || TEST_PAINT_AUDIT || TEST_SAVELOAD_AUDIT || \
 	TEST_SAVELOAD_TOUR || TEST_UNDO_AUDIT || TEST_TOPSCREEN_AUDIT || \
-	TEST_WORKZOOM_AUDIT)
+	TEST_WORKZOOM_AUDIT || TEST_PICKPAD_AUDIT)
 
 // The subset of the flags above that answer in words rather than in pictures.
 //
@@ -235,4 +241,4 @@
 	TEST_LEVEL1_WORKSPACE_AUDIT || TEST_CAMERA_PAN_AUDIT || \
 	TEST_CEILING_AUDIT || TEST_COLLISION_AUDIT || TEST_HINT_AUDIT || \
 	TEST_PAINT_AUDIT || TEST_SAVELOAD_AUDIT || TEST_UNDO_AUDIT || \
-	TEST_TOPSCREEN_AUDIT || TEST_WORKZOOM_AUDIT)
+	TEST_TOPSCREEN_AUDIT || TEST_WORKZOOM_AUDIT || TEST_PICKPAD_AUDIT)

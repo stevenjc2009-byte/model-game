@@ -33,6 +33,44 @@
 // in hand, once that part is snipped and filed and has somewhere to go.
 #define GHOST_PAD 0.20f
 
+// Every part's tap box is grown a little into the empty space around it, so a
+// piece a few pixels across can be caught without landing the stylus exactly on
+// it. Two rules stop that from turning into taps on the wrong part.
+//
+// First, the allowance is only consulted for a tap that hit nothing at all.
+// pickPart resolves the true, undersized boxes first and falls back to the grown
+// ones only if the point was inside none of them. A grown box therefore cannot
+// take a tap away from a part that really is under the stylus, however fat it
+// is - which is the whole of "the hit boxes must not collide with each other".
+//
+// Second, when two grown boxes both reach the same empty pixel, the part whose
+// own box the tap missed by the smaller fraction of its allowance wins. Each
+// part owns the space nearest to it and nothing else, so two neighbours stay
+// told apart - the same answer pickSocket already gives for its fat boxes, for
+// the same reason.
+//
+// The numbers are in touch-screen pixels because pixels are what the player is
+// aiming with, and a world-space allowance would mean something different at
+// every camera distance. PICK_PAD_PX is what everything gets. PICK_MIN_TAP_PX is
+// the size a box is grown up to when the flat allowance would still leave it
+// smaller than that, which is how the fiddly pieces get more help than the
+// structural ones without a size rule of their own. PICK_PAD_MAX_PX stops that
+// running away on a part that is a pixel or two across at a distance.
+#define PICK_PAD_PX      4.0f
+#define PICK_MIN_TAP_PX 20.0f
+#define PICK_PAD_MAX_PX 10.0f
+
+float pickPadScale = 1.0f;
+
+float pickPadPixels(float extent)
+{
+	float pad = PICK_PAD_PX;
+	float grow = (PICK_MIN_TAP_PX - extent) * 0.5f;
+	if (grow > pad) pad = grow;
+	if (pad > PICK_PAD_MAX_PX) pad = PICK_PAD_MAX_PX;
+	return pad * pickPadScale;
+}
+
 static const float noOffset[3] = { 0.0f, 0.0f, 0.0f };
 
 // Two projections of the same view. The tilted one main.c draws the bottom
@@ -141,57 +179,95 @@ bool pickKitBox(const C3D_Mtx* modelView, int tx, int ty)
 	return tx >= minX && tx <= maxX && ty >= minY && ty <= maxY;
 }
 
-// Which part is under this touch point? Takes the nearest box the point
-// falls inside. Returns -1 for empty space.
-int pickPart(const C3D_Mtx* modelView, int tx, int ty)
+// Where a part's tap box lands on the touch screen, before any allowance.
+//
+// Uncut pieces travel with the rotated, rear-desk runner. Cut pieces use their
+// independent mat/stand offset. Everything here has to match what sceneRender
+// actually put on screen, or a tap lands on a piece the player cannot see: an
+// uncut part only exists while its own runner is the one on the bench, and only
+// once the box has finished opening.
+bool pickPartScreenRect(const C3D_Mtx* modelView, int index,
+	float* outMinX, float* outMinY, float* outMaxX, float* outMaxY, float* nearW)
 {
 	float pad[3] = { 0.0f, 0.0f, 0.0f };
 	const meshPart* parts = meshParts();
+
+	if (!partStates[index].cut)
+	{
+		if (parts[index].runner != currentRunner) return false;
+		if (boxStage(0.16f, 0.42f) <= 0.0f) return false;
+	}
+
+	C3D_Mtx partView = *modelView;
+	const float* offset = partStates[index].offset;
+	if (partStates[index].cut)
+		Mtx_Translate(&partView, offset[0], offset[1], offset[2], true);
+	else
+		buildRunnerView(&partView, modelView);
+
+	// A packed part is drawn shrunk into its runner cell. Picking it by its
+	// full authored size would reach well past the drawn piece and into its
+	// neighbours' cells, so while it is still on the runner it is picked at
+	// the size it is drawn at.
+	const float* pickMin = partStates[index].cut ? parts[index].min : parts[index].runnerMin;
+	const float* pickMax = partStates[index].cut ? parts[index].max : parts[index].runnerMax;
+
+	C3D_Mtx partMvp;
+	Mtx_Multiply(&partMvp, &pickProjection, &partView);
+	return projectBox(&partMvp, pickMin, pickMax, noOffset, pad,
+		outMinX, outMinY, outMaxX, outMaxY, nearW);
+}
+
+// Which part is under this touch point? Takes the nearest box the point
+// falls inside. Returns -1 for empty space.
+//
+// Failing that, the nearest box the point fell just outside of - see the
+// allowance rules at the top of this file. The two passes are worked out in one
+// loop and chosen between at the end rather than short-circuited, so the answer
+// does not depend on which part happens to be first in the list.
+int pickPart(const C3D_Mtx* modelView, int tx, int ty)
+{
 	int   best  = -1;
 	float bestW = 1e9f;
+	int   nearest      = -1;
+	float nearestScore = 1e9f;
+	float nearestW     = 1e9f;
 
 	for (int i = 0; i < meshPartCount(); i++)
 	{
-		// Uncut pieces travel with the rotated, rear-desk runner. Cut pieces use
-		// their independent mat/stand offset. Everything here has to match what
-		// sceneRender actually put on screen, or a tap lands on a piece the
-		// player cannot see: an uncut part only exists while its own runner is
-		// the one on the bench, and only once the box has finished opening.
-		if (!partStates[i].cut)
-		{
-			if (parts[i].runner != currentRunner) continue;
-			if (boxStage(0.16f, 0.42f) <= 0.0f) continue;
-		}
-
-		C3D_Mtx partView = *modelView;
-		const float* offset = partStates[i].offset;
-		if (partStates[i].cut)
-			Mtx_Translate(&partView, offset[0], offset[1], offset[2], true);
-		else
-			buildRunnerView(&partView, modelView);
-
-		// A packed part is drawn shrunk into its runner cell. Picking it by its
-		// full authored size would reach well past the drawn piece and into its
-		// neighbours' cells, so while it is still on the runner it is picked at
-		// the size it is drawn at.
-		const float* pickMin = partStates[i].cut ? parts[i].min : parts[i].runnerMin;
-		const float* pickMax = partStates[i].cut ? parts[i].max : parts[i].runnerMax;
-
-		C3D_Mtx partMvp;
-		Mtx_Multiply(&partMvp, &pickProjection, &partView);
-		float minX, minY, maxX, maxY, nearW;
-		if (!projectBox(&partMvp, pickMin, pickMax, noOffset, pad,
-				&minX, &minY, &maxX, &maxY, &nearW))
+		float minX, minY, maxX, maxY, w;
+		if (!pickPartScreenRect(modelView, i, &minX, &minY, &maxX, &maxY, &w))
 			continue;
 
-		if (tx >= minX && tx <= maxX && ty >= minY && ty <= maxY && nearW < bestW)
+		if (tx >= minX && tx <= maxX && ty >= minY && ty <= maxY)
 		{
-			bestW = nearW;
-			best  = i;
+			if (w < bestW) { bestW = w; best = i; }
+			continue;
+		}
+
+		// Outside its real box, so it is only a candidate for the fallback, and
+		// only if the miss was inside the allowance. Scored by how far outside it
+		// landed as a fraction of that allowance: 0 at the edge of the box, 1 at
+		// the edge of the allowance, so the comparison between two parts is fair
+		// even when one of them was granted a bigger allowance than the other.
+		float padX = pickPadPixels(maxX - minX);
+		float padY = pickPadPixels(maxY - minY);
+		if (padX <= 0.0f || padY <= 0.0f) continue;
+
+		float outX = tx < minX ? (minX - tx) / padX : (tx > maxX ? (tx - maxX) / padX : 0.0f);
+		float outY = ty < minY ? (minY - ty) / padY : (ty > maxY ? (ty - maxY) / padY : 0.0f);
+		float score = outX > outY ? outX : outY;
+		if (score > 1.0f) continue;
+
+		if (score < nearestScore || (score == nearestScore && w < nearestW))
+		{
+			nearestScore = score;
+			nearestW     = w;
+			nearest      = i;
 		}
 	}
 
-	return best;
+	return best >= 0 ? best : nearest;
 }
 
 // Which socket on the build stand is waiting for this part, or -1 if the

@@ -1946,11 +1946,20 @@ static bool runnerStillHolding(void)
 // screen, which is precisely the piece that is hard to file.
 #define WORK_SMALL_EXTENT 0.60f
 #define WORK_TINY_EXTENT  0.15f
-// In world units, taken off whatever distance the player is already at. Against
-// the 4.35 the assembly framing opens on, the full lean is 4.35 -> 3.15, which
-// makes the part about 38% bigger on screen: enough to file against, not so
-// much that the rest of the bench stops being readable.
-#define WORK_ZOOM_MAX     1.20f
+// How much of the bottom screen's height the piece should stand once the camera
+// has finished leaning in.
+//
+// The lean used to be a fixed 1.20 world units taken off whatever distance the
+// player was already at, and that is the wrong shape. Subtracting a constant
+// helps least exactly where help is needed most: from the far end of the zoom a
+// 0.19-unit part went from 7 px tall to 9. A fraction of the screen is an
+// absolute target instead, so wherever the player was standing, the piece ends
+// up the same size to work on.
+//
+// 0.34 of 240 px is about 80 px - big enough to rub a stylus along without
+// covering it with your own hand, small enough that the neighbouring pieces and
+// the mat are still in the shot.
+#define WORK_SCREEN_FRACTION 0.34f
 
 // The longest edge of a part's tap box - the part at the size the player sees
 // it once it is off the frame. Always the authored box, never the packed
@@ -1975,15 +1984,40 @@ static float partLongestExtent(int index)
 // canFile stops being true the instant filed reaches 1, so finishing the job is
 // itself the signal to ease back to the distance the player chose. Nothing has
 // to remember what that distance was, because camDist was never touched.
+// How far back the camera would have to stand for a part of this size to fill
+// WORK_SCREEN_FRACTION of the screen. tan(fov/2) is the half-height the view
+// covers one unit out, the same identity the level-select framing is built on.
+//
+// Floored at CAM_NEAR_FOCUS, which is as close as the player's own zoom is
+// allowed to come once locked onto a part - an automatic lean has no business
+// going somewhere they could not have chosen. The very smallest pieces in the
+// game are past that floor (a 0.14 part asks for 0.40), so for those the floor
+// is the answer and they come out around 32 px rather than the full 80.
+static float workComfortStand(float extent)
+{
+	const float t = tanf(C3D_AngleFromDegrees(FIELD_OF_VIEW) * 0.5f);
+	float d = extent / (2.0f * t * WORK_SCREEN_FRACTION);
+	return d < CAM_NEAR_FOCUS ? CAM_NEAR_FOCUS : d;
+}
+
 static float workZoomWanted(void)
 {
 	if (photoMode || selectedPart < 0 || !canFile(selectedPart)) return 0.0f;
 
-	float t = (WORK_SMALL_EXTENT - partLongestExtent(selectedPart))
-	        / (WORK_SMALL_EXTENT - WORK_TINY_EXTENT);
-	if (t <= 0.0f) return 0.0f;
-	if (t > 1.0f) t = 1.0f;
-	return WORK_ZOOM_MAX * t;
+	float extent = partLongestExtent(selectedPart);
+	float ramp = (WORK_SMALL_EXTENT - extent) / (WORK_SMALL_EXTENT - WORK_TINY_EXTENT);
+	if (ramp <= 0.0f) return 0.0f;
+	if (ramp > 1.0f) ramp = 1.0f;
+
+	// From where the player is, towards where the part wants the camera, by how
+	// small the part is. A piece on the 0.60 threshold is left alone entirely and
+	// one at 0.15 or under is taken the whole way in, so there is still no size at
+	// which selecting one part jumps the view and the next-smallest does not.
+	//
+	// Never negative: a player who has already zoomed closer than the part needs
+	// is not shoved back out again.
+	float lean = ramp * (camDist - workComfortStand(extent));
+	return lean > 0.0f ? lean : 0.0f;
 }
 
 // Slides the camera's pivot onto whatever is selected, and back to the middle
@@ -2132,6 +2166,10 @@ static void runCameraIdleAudit(void) { }
 //      build with no lean at all cannot pass this by never having moved.
 //   B  the biggest part in the same kit gets nothing.
 //   P  photo mode gets nothing either, small part or not.
+//   Z  from the far end of the player's own zoom, a small part is still brought
+//      in to somewhere it can be worked on - the case that says the lean is an
+//      absolute target rather than a fixed step back, and the one the old fixed
+//      1.20 could not pass.
 //
 // B and P are green whether the feature is on or off, so a build that failed to
 // run the audit at all cannot look like a detection.
@@ -2229,11 +2267,33 @@ static void runWorkZoomAudit(void)
 	      && camDist == photoDist && angleX == photoPitch && focusAmt == photoAmt;
 	photoMode = false;
 
+	// The same part again, but from the far end of the zoom the player is allowed
+	// to use. A lean that is a fixed step back leaves them at 6.50 less 1.20, with
+	// the piece 9 px tall; a lean that targets a size on screen has to arrive
+	// somewhere they could work, and the distance still has to come back exactly.
+	partStates[small].filed = 0.0f;
+	partStates[small].smooth = false;
+	selectedPart = -1;
+	frameAssemblyCamera();
+	camDist = CAM_FAR_LIMIT;
+	float farRest = cameraStandDistance();
+
+	selectedPart = small;
+	workZoomSettle();
+	float farLeaned = cameraStandDistance();
+
+	partStates[small].filed = 1.0f;
+	partStates[small].smooth = true;
+	workZoomSettle();
+	float farBack = cameraStandDistance();
+	bool z = farLeaned <= CAM_NEAR_LIMIT && fabsf(farBack - farRest) < 0.01f;
+
 	printf("WZ rest=%.3f leaned=%.3f back=%.3f big=%.3f photolean=%.3f amt=%.3f\n",
 		rest, leaned, back, bigStand, camWorkZoom, focusAmt);
-	printf("WORKZOOM AUDIT %c%c%c%c%c %s\n",
+	printf("WZ far rest=%.3f leaned=%.3f back=%.3f\n", farRest, farLeaned, farBack);
+	printf("WORKZOOM AUDIT %c%c%c%c%c%c %s\n",
 		s ? 'S' : '-', r ? 'R' : '-', b ? 'B' : '-', p ? 'P' : '-', a ? 'A' : '-',
-		(s && r && b && p && a) ? "PASS" : "FAIL");
+		z ? 'Z' : '-', (s && r && b && p && a && z) ? "PASS" : "FAIL");
 
 	sceneLoadKit(1);
 	memset(partStates, 0, sizeof(partStates));
@@ -2243,6 +2303,229 @@ static void runWorkZoomAudit(void)
 }
 #else
 static void runWorkZoomAudit(void) { }
+#endif
+
+#if TEST_PICKPAD_AUDIT
+// Part tap boxes are grown a few pixels into the empty space around them, so a
+// piece that is only a handful of pixels across can be caught without landing
+// the stylus exactly on it. Three cases, and what each is here for:
+//
+//   E  no tap changes hands. Every sample inside a part's own drawn box picks
+//      the same part with the allowance switched on as with it off. This is the
+//      case that says the grown boxes cannot collide with one another, and it
+//      goes red the moment the allowance is applied before the true boxes
+//      instead of after them - which is the obvious way to write this feature
+//      and the wrong one.
+//   G  the allowance buys something, and it reaches all the way round. Sampling
+//      a ring just outside every part's box: more of those taps land on a part
+//      than did before, and not one of them still comes back as empty bench.
+//
+//      Deliberately not "the smallest piece in the kit must gain", which is what
+//      this asked for first and which the measurement refuted. On a packed
+//      runner - and on a crowded mat - a small piece is often ringed entirely by
+//      its neighbours' real boxes, and pass one correctly keeps those pixels for
+//      the parts that genuinely occupy them. There is nothing there for the
+//      allowance to win, and winning it would mean breaking the guarantee case E
+//      exists to hold. The per-part numbers are printed either way: where the
+//      ring had any empty bench in it at all, the allowance took essentially all
+//      of it - hit == empty on every part but a handful, where the odd pixel went
+//      to a neighbour whose own box the tap had missed by less.
+//   N  a tap in the corner of the screen still picks nothing, so the allowance
+//      is bounded rather than swallowing the whole bench. Green with the feature
+//      on or off, so a build that failed to run the audit at all cannot look
+//      like a detection.
+//
+// Every kit is measured twice, because the two states ask different questions.
+// Packed on the runner the parts are at their smallest and wedged against their
+// neighbours, which is the hardest case for E. Cut and settled on the mat is
+// where filing actually happens - it is the state the player is in when they go
+// looking for a tiny piece to tap - so every case is judged in that state too.
+//
+// The samples are aimed with pickPartScreenRect - the picker's own answer for
+// where a part is - rather than a second projection here that would be free to
+// drift away from it and then agree with itself about the wrong boxes.
+static int pickPadRingEmpty = 0;
+
+static int pickPadRingHits(const C3D_Mtx* mv, int index,
+	float minX, float minY, float maxX, float maxY, float ox, float oy)
+{
+	static const int sx[8] = { -1,  0,  1, -1,  1, -1,  0,  1 };
+	static const int sy[8] = { -1, -1, -1,  0,  0,  1,  1,  1 };
+	int hits = 0;
+	pickPadRingEmpty = 0;
+	for (int s = 0; s < 8; s++)
+	{
+		float fx = sx[s] < 0 ? minX - ox : (sx[s] > 0 ? maxX + ox : (minX + maxX) * 0.5f);
+		float fy = sy[s] < 0 ? minY - oy : (sy[s] > 0 ? maxY + oy : (minY + maxY) * 0.5f);
+		int tx = (int)fx, ty = (int)fy;
+		if (tx < 0 || tx >= BOTTOM_W || ty < 0 || ty >= BOTTOM_H) continue;
+		int got = pickPart(mv, tx, ty);
+		if (got == index) hits++;
+		if (got < 0) pickPadRingEmpty++;
+	}
+	return hits;
+}
+
+// Puts every part where the game puts it once it has been snipped off and has
+// finished falling: the game's own loose slot for that part, centred on it and
+// stood on the wood. Taken from cutPart/updateCuts rather than invented here, so
+// the layout the audit measures is the layout the player taps at.
+static void pickPadSpreadOnMat(void)
+{
+	const meshPart* parts = meshParts();
+	for (int i = 0; i < meshPartCount(); i++)
+	{
+		float home[2];
+		meshLooseSlot(i, home);
+		partState* st = &partStates[i];
+		st->cut = true;
+		st->moving = false;
+		st->offset[0] = home[0] - (parts[i].min[0] + parts[i].max[0]) * 0.5f;
+		st->offset[1] = meshLooseTopY() - parts[i].min[1];
+		st->offset[2] = home[1] - (parts[i].min[2] + parts[i].max[2]) * 0.5f;
+	}
+}
+
+// One kit in one state. Returns false if any tap inside a part's own box came
+// back with a different answer once the allowance was switched on.
+static bool pickPadMeasureKit(const C3D_Mtx* mv, int smallest,
+	int* kitBefore, int* kitAfter, int* smallBefore, int* smallAfter,
+	int* stillEmpty)
+{
+	// The centre and the four corners, the corners pulled a fraction off the edge.
+	// The corners are the samples that matter: they are where a neighbour's
+	// allowance would reach in if the two passes were ever the wrong way round.
+	static const float insideX[5] = { 0.50f, 0.06f, 0.94f, 0.06f, 0.94f };
+	static const float insideY[5] = { 0.50f, 0.06f, 0.06f, 0.94f, 0.94f };
+
+	bool ok = true;
+	*kitBefore = *kitAfter = *smallBefore = *smallAfter = *stillEmpty = 0;
+
+	for (int i = 0; i < meshPartCount(); i++)
+	{
+		float minX, minY, maxX, maxY, w;
+		pickPadScale = 1.0f;
+		if (!pickPartScreenRect(mv, i, &minX, &minY, &maxX, &maxY, &w)) continue;
+		if (maxX <= minX || maxY <= minY) continue;
+
+		for (int s = 0; s < 5; s++)
+		{
+			int tx = (int)(minX + (maxX - minX) * insideX[s]);
+			int ty = (int)(minY + (maxY - minY) * insideY[s]);
+			if (tx < 0 || tx >= BOTTOM_W || ty < 0 || ty >= BOTTOM_H) continue;
+			// Truncating to a whole pixel can land just outside a box only a few
+			// pixels across, and a sample outside the box is not the question this
+			// case is asking. A box with no whole pixel inside it contributes
+			// nothing here, which is honest: it is unhittable without the
+			// allowance, and that is what the allowance is for.
+			if (tx < minX || tx > maxX || ty < minY || ty > maxY) continue;
+
+			pickPadScale = 0.0f;
+			int was = pickPart(mv, tx, ty);
+			pickPadScale = 1.0f;
+			int now = pickPart(mv, tx, ty);
+			if (was != now) ok = false;
+		}
+
+		// The ring sits at 60% of the allowance, so it is outside the real box in
+		// both passes and inside the grown one in only the second. Worked out once,
+		// at full scale, or the reference pass would move its own samples onto the
+		// box edge and count them as hits.
+		float ox = pickPadPixels(maxX - minX) * 0.60f;
+		float oy = pickPadPixels(maxY - minY) * 0.60f;
+
+		pickPadScale = 0.0f;
+		int before = pickPadRingHits(mv, i, minX, minY, maxX, maxY, ox, oy);
+		int pickPadEmptyBefore = pickPadRingEmpty;
+		pickPadScale = 1.0f;
+		int after = pickPadRingHits(mv, i, minX, minY, maxX, maxY, ox, oy);
+		// Every one of those samples is inside this part's own allowance by
+		// construction - the ring is at 60% of it - so with the allowance on it
+		// has to come back as this part, or as a neighbour whose own allowance the
+		// tap missed by less. Coming back as nothing means the allowance is not
+		// actually reaching round the part.
+		*stillEmpty += pickPadRingEmpty;
+
+		*kitBefore += before;
+		*kitAfter  += after;
+		if (i == smallest)
+		{
+			*smallBefore = before;
+			*smallAfter  = after;
+			printf("  PPs part=%d w=%.1f h=%.1f pad=%.1f empty=%d hit=%d\n",
+				i, maxX - minX, maxY - minY, pickPadPixels(maxX - minX),
+				pickPadEmptyBefore, after);
+		}
+	}
+
+	pickPadScale = 1.0f;
+	return ok;
+}
+
+static void runPickPadAudit(void)
+{
+	bool e = true, g = true, n = true;
+
+	for (int level = 1; level <= MESH_KIT_LEVELS; level++)
+	{
+		int smallest = 0;
+		float smallExt = 1e9f;
+		int packedBefore, packedAfter, packedSmallBefore, packedSmallAfter, packedEmpty;
+		int matBefore, matAfter, matSmallBefore, matSmallAfter, matEmpty;
+		C3D_Mtx mv;
+
+		// Packed on the runner, as the kit arrives.
+		sceneLoadKit(level);
+		memset(partStates, 0, sizeof(partStates));
+		cutCount = filedCount = builtCount = currentRunner = 0;
+		boxOpen = 1.0f; runnerLift = 1.0f; boxOpening = false;
+		selectedPart = -1; photoMode = false;
+		frameRunnerCamera();
+		buildModelView(&mv);
+
+		for (int i = 0; i < meshPartCount(); i++)
+		{
+			float ext = partLongestExtent(i);
+			if (ext < smallExt) { smallExt = ext; smallest = i; }
+		}
+
+		if (!pickPadMeasureKit(&mv, smallest, &packedBefore, &packedAfter,
+				&packedSmallBefore, &packedSmallAfter, &packedEmpty)) e = false;
+		if (packedAfter <= packedBefore || packedEmpty != 0) g = false;
+		if (pickPart(&mv, 3, 3) != -1) n = false;
+
+		// Cut and settled on the mat, which is where filing happens.
+		pickPadSpreadOnMat();
+		frameAssemblyCamera();
+		focus[0] = meshLooseX();
+		focus[1] = MAT_TOP + 0.24f;
+		focus[2] = meshLooseZ();
+		focusAmt = 0.60f;
+		buildModelView(&mv);
+
+		if (!pickPadMeasureKit(&mv, smallest, &matBefore, &matAfter,
+				&matSmallBefore, &matSmallAfter, &matEmpty)) e = false;
+		if (matAfter <= matBefore || matEmpty != 0) g = false;
+		if (pickPart(&mv, 3, 3) != -1) n = false;
+
+		printf("PP L%-2d ext=%.3f runner %d->%d small %d->%d gap %d | mat %d->%d small %d->%d gap %d\n",
+			level, smallExt, packedBefore, packedAfter, packedSmallBefore, packedSmallAfter,
+			packedEmpty, matBefore, matAfter, matSmallBefore, matSmallAfter, matEmpty);
+	}
+
+	pickPadScale = 1.0f;
+	printf("PICKPAD AUDIT %c%c%c %s\n",
+		e ? 'E' : '-', g ? 'G' : '-', n ? 'N' : '-',
+		(e && g && n) ? "PASS" : "FAIL");
+
+	sceneLoadKit(1);
+	memset(partStates, 0, sizeof(partStates));
+	cutCount = filedCount = builtCount = currentRunner = 0;
+	boxOpen = runnerLift = 0.0f; boxOpening = false; selectedPart = -1;
+	frameWorkbenchCamera();
+}
+#else
+static void runPickPadAudit(void) { }
 #endif
 
 #if TEST_CAMERA_PAN_AUDIT
@@ -5412,6 +5695,7 @@ static int gameInit(void)
 	runUndoAudit();
 	runTopScreenAudit(isNew3DS);
 	runWorkZoomAudit();
+	runPickPadAudit();
 	#if TEST_SAVELOAD_AUDIT
 	// Same hold the other console-output audits use: the frame loop paints over
 	// the top screen within one frame, and this output has to survive long
