@@ -468,9 +468,9 @@ KIT("Propeller Plane",2,P("hub",SH_CYLINDER,AXIS_X,.25,.1,.25,-.85,-.1,0,-1,3,0)
 // is both what an open-wheel nose actually is and something that overlaps real
 // solid at both ends.
 KIT("Race Car",2,P("chassis",SH_WEDGE,AXIS_Y,1.85,.38,.72,0,-.48,0,-1,2,0),P("cockpit",SH_BOX,AXIS_Y,.62,.28,.48,.18,-.12,0,0,0,0),P("front wing",SH_PLATE,AXIS_Y,.20,.08,1.08,-1.04,-.67,0,0,0,0),P("rear spoiler",SH_PLATE,AXIS_Y,.20,.15,1.02,.98,.04,0,1,0,1),PAIR_Z("wheel FL","wheel FR",SH_WHEEL,AXIS_X,.18,.38,.38,-.52,-.76,.44,0,3,1),PAIR_Z("wheel RL","wheel RR",SH_WHEEL,AXIS_X,.18,.38,.38,.58,-.76,.44,0,3,1),P("nose",SH_PLATE,AXIS_Y,.45,.14,.30,-1.00,-.62,0,0,2,1),P("rear diffuser",SH_PLATE,AXIS_Y,.30,.07,.76,.96,-.67,0,0,3,1)),
-KIT("Excavator",2,P("track base",SH_BOX,AXIS_Y,1.2,.35,.7,0,-.65,0,-1,3,0),P("cab",SH_BOX,AXIS_Y,.55,.55,.55,-.2,-.1,0,0,2,0),P("boom",SH_ROD,AXIS_X,1.0,.15,.15,.55,.15,0,1,3,0),P("arm",SH_ROD,AXIS_Y,.15,.75,.15,.95,-.25,0,2,3,1),P("bucket",SH_WEDGE,AXIS_X,.45,.35,.5,1.1,-.65,0,3,2,1),PAIR_Z("track L","track R",SH_BOX,AXIS_Y,1.1,.3,.18,0,-.85,.35,0,3,1),P("hydraulic",SH_ROD,AXIS_X,.7,.07,.07,.55,.07,.07,2,0,1),P("weight",SH_BOX,AXIS_Y,.4,.4,.5,-.70,-.35,0,0,3,1),P("pivot",SH_CYLINDER,AXIS_Y,.22,.15,.22,.0,-.28,0,0,0,1)),
-KIT("Dragon",2,P("body",SH_CYLINDER,AXIS_X,1.25,.55,.55,0,-.25,0,-1,1,0),P("head",SH_WEDGE,AXIS_X,.55,.45,.45,-.75,.0,0,0,1,0),P("tail",SH_CONE,AXIS_X,.75,.3,.3,.85,-.3,0,0,1,0),PAIR_Z("wing L","wing R",SH_WEDGE,AXIS_Y,.75,.15,1.1,0,.15,.58,0,3,1),PAIR_Z("leg FL","leg FR",SH_ROD,AXIS_Y,.16,.55,.16,-.35,-.68,.24,0,1,1),PAIR_Z("leg RL","leg RR",SH_ROD,AXIS_Y,.16,.55,.16,.35,-.68,.24,0,1,1),P("horn",SH_CONE,AXIS_Y,.14,.3,.14,-.85,.35,0,1,3,1)),
-KIT("Castle Tower",3,P("base",SH_CYLINDER,AXIS_Y,.9,.35,.9,0,-.75,0,-1,0,0),P("ring",SH_CYLINDER,AXIS_Y,.75,.35,.75,0,-.42,0,0,0,0),P("tower",SH_CYLINDER,AXIS_Y,.62,.75,.62,0,.1,0,1,0,0),P("battlement",SH_TUBE,AXIS_Y,.9,.18,.9,0,.58,0,2,3,1),P("door",SH_PLATE,AXIS_Z,.25,.42,.05,0,-.55,.45,0,2,1),P("window",SH_PLATE,AXIS_Z,.16,.2,.05,.18,.12,.23,2,1,1),P("mast",SH_ROD,AXIS_Y,.07,.65,.07,0,1.0,0,3,3,1),P("flag",SH_PLATE,AXIS_Z,.4,.22,.04,.2,1.2,0,6,2,2),P("roof",SH_CONE,AXIS_Y,.7,.35,.7,0,.95,0,3,2,2),P("trim",SH_PLATE,AXIS_Y,.7,.05,.7,0,-.22,0,1,3,2)),
+KIT("Excavator",2,P("track base",SH_BOX,AXIS_Y,1.2,.35,.7,0,-.65,0,-1,3,0),P("cab",SH_BOX,AXIS_Y,.55,.55,.55,-.2,-.1,0,0,2,0),P("boom",SH_ROD,AXIS_X,1.0,.15,.15,.55,.15,0,1,3,0),P("arm",SH_ROD,AXIS_Y,.15,.75,.15,.95,-.25,0,2,3,1),P("bucket",SH_WEDGE,AXIS_X,.35,.45,.5,1.1,-.65,0,3,2,1),PAIR_Z("track L","track R",SH_BOX,AXIS_Y,1.1,.3,.18,0,-.85,.35,0,3,1),P("hydraulic",SH_ROD,AXIS_X,.7,.07,.07,.55,.07,.07,2,0,1),P("weight",SH_BOX,AXIS_Y,.4,.4,.5,-.70,-.35,0,0,3,1),P("pivot",SH_CYLINDER,AXIS_Y,.22,.15,.22,.0,-.28,0,0,0,1)),
+KIT("Dragon",2,P("body",SH_CYLINDER,AXIS_X,1.25,.55,.55,0,-.25,0,-1,1,0),P("head",SH_WEDGE,AXIS_X,.45,.55,.45,-.75,.0,0,0,1,0),P("tail",SH_CONE,AXIS_X,.75,.3,.3,.85,-.3,0,0,1,0),PAIR_Z("wing L","wing R",SH_WEDGE,AXIS_Y,.75,.15,1.1,0,.15,.58,0,3,1),PAIR_Z("leg FL","leg FR",SH_ROD,AXIS_Y,.16,.55,.16,-.35,-.68,.24,0,1,1),PAIR_Z("leg RL","leg RR",SH_ROD,AXIS_Y,.16,.55,.16,.35,-.68,.24,0,1,1),P("horn",SH_CONE,AXIS_Y,.14,.3,.14,-.85,.35,0,1,3,1)),
+KIT("Castle Tower",3,P("base",SH_CYLINDER,AXIS_Y,.9,.35,.9,0,-.75,0,-1,0,0),P("ring",SH_CYLINDER,AXIS_Y,.75,.35,.75,0,-.42,0,0,0,0),P("tower",SH_CYLINDER,AXIS_Y,.62,.75,.62,0,.1,0,1,0,0),P("battlement",SH_TUBE,AXIS_Y,.9,.18,.9,0,.58,0,2,3,1),P("door",SH_PLATE,AXIS_Z,.28,.32,.05,0,-.42,.36,1,2,1),P("window",SH_PLATE,AXIS_Z,.16,.2,.05,.18,.12,.23,2,1,1),P("mast",SH_ROD,AXIS_Y,.07,.65,.07,0,1.0,0,3,3,1),P("flag",SH_PLATE,AXIS_Z,.4,.22,.04,.2,1.2,0,6,2,2),P("roof",SH_CONE,AXIS_Y,.7,.35,.7,0,.95,0,3,2,2),P("trim",SH_PLATE,AXIS_Y,.7,.05,.7,0,-.22,0,1,3,2)),
 };
 // Explicit authored kit data. P records a real part's geometry, assembled
 // target (kit-local), dependency, colour and runner. Compact macro notation
@@ -480,8 +480,44 @@ KIT("Castle Tower",3,P("base",SH_CYLINDER,AXIS_Y,.9,.35,.9,0,-.75,0,-1,0,0),P("r
 // have looked present and drawn nothing.
 static const kitDef kitDefs[8] = {
 KIT("Star Trophy",1, P("star",SH_STAR,AXIS_Z,.68,.68,.12,0,.63,.05,-1,3,0),P("cup",SH_CONE,AXIS_Y,.48,.38,.20,0,.10,0,0,3,0),P("stem",SH_ROD,AXIS_Y,.12,.42,.12,0,-.30,0,1,0,0),P("base",SH_CYLINDER,AXIS_Y,.58,.14,.58,0,-.58,0,2,3,0),PAIR_X("point","point",SH_PLATE,AXIS_Z,.12,.10,.04,.28,.53,.00,0,3,0),P("badge",SH_PLATE,AXIS_Z,.22,.14,.04,0,.10,.19,1,0,0),P("rim",SH_CYLINDER,AXIS_Y,.50,.02,.50,0,.27,0,1,3,0),P("foot",SH_BOX,AXIS_Y,.42,.09,.28,0,-.70,0,3,0,0),P("shine",SH_PLATE,AXIS_Z,.08,.16,.03,.18,.22,.10,1,3,0)),
-KIT("Small Cactus",1, P("pot",SH_CONE,AXIS_Y,.62,.48,.62,0,-.7,0,-1,2,0),P("soil",SH_CYLINDER,AXIS_Y,.48,.1,.48,0,-.43,0,0,3,0),P("trunk",SH_CYLINDER,AXIS_Y,.26,1.0,.26,0,.05,0,1,1,0),P("left arm",SH_ROD,AXIS_X,.6,.16,.16,-.36,.12,0,2,1,0),P("right arm",SH_ROD,AXIS_X,.6,.16,.16,.36,.28,0,2,1,0),P("flower",SH_CONE,AXIS_Y,.22,.22,.22,0,.62,0,2,3,0),PAIR_X("rib","rib",SH_PLATE,AXIS_Z,.05,.7,.04,.09,.05,.09,2,1,0),P("base",SH_BOX,AXIS_Y,.5,.1,.5,0,-.98,0,0,2,0),P("tag",SH_PLATE,AXIS_Z,.22,.12,.04,.20,-.88,.14,0,3,0)),
-KIT("Sailboat",1, P("hull",SH_WEDGE,AXIS_Y,1.5,.45,.5,0,-.55,0,-1,1,0),P("keel",SH_ROD,AXIS_Y,.12,.6,.12,0,-.85,0,0,3,0),P("mast",SH_ROD,AXIS_Y,.1,1.6,.1,0,.35,0,0,2,0),P("main sail",SH_WEDGE,AXIS_Y,.75,1.0,.05,.38,.48,0,2,0,0),P("front sail",SH_WEDGE,AXIS_Y,.55,.7,.05,-.38,.28,0,2,0,0),P("rudder",SH_PLATE,AXIS_Z,.22,.4,.05,-.72,-.60,0,0,2,0),P("deck",SH_PLATE,AXIS_Y,1.1,.08,.42,0,-.25,0,0,2,0),P("flag",SH_PLATE,AXIS_Z,.35,.2,.04,0,1.15,0,2,3,0),P("boom",SH_ROD,AXIS_X,.9,.08,.08,.25,.0,0,2,0,0),P("anchor",SH_ROD,AXIS_Y,.12,.32,.12,.7,-.65,0,0,3,0)),
+// The pot was an SH_CONE, and every cone here is pointed at its own +axis, so
+// what the plant sat in was a spike standing on its base: radius .31 at the
+// bottom and radius NOTHING at the top. The soil disc above it is .48 across,
+// so it overhung a point and read exactly as what it was - a coloured collar
+// floating in mid air. There is no truncated-cone primitive and no way to turn
+// a cone upside down (AXIS_X and AXIS_Z aim the apex sideways, not down), so
+// the pot is a straight-sided cylinder and the soil sits down inside its rim.
+//
+// The two arms were both level rods poking straight out at almost the same
+// height, which is a telegraph pole rather than a cactus. They are elbows now:
+// a short arm out, then a section turning up, at two clearly different heights.
+// That costs two parts, and the two "rib" plates - decoration nobody could pick
+// out against the trunk - are what pays for them, so the kit is still ten.
+KIT("Small Cactus",1, P("pot",SH_CYLINDER,AXIS_Y,.60,.46,.60,0,-.71,0,-1,2,0),P("soil",SH_CYLINDER,AXIS_Y,.50,.10,.50,0,-.51,0,0,3,0),P("trunk",SH_CYLINDER,AXIS_Y,.26,1.00,.26,0,.05,0,1,1,0),P("left arm",SH_ROD,AXIS_X,.42,.15,.15,-.28,-.05,0,2,1,0),P("right arm",SH_ROD,AXIS_X,.40,.15,.15,.27,.22,0,2,1,0),P("left tip",SH_ROD,AXIS_Y,.15,.42,.15,-.46,.16,0,3,1,0),P("right tip",SH_ROD,AXIS_Y,.15,.38,.15,.45,.41,0,4,1,0),P("flower",SH_CONE,AXIS_Y,.22,.22,.22,0,.62,0,2,3,0),P("base",SH_BOX,AXIS_Y,.68,.09,.68,0,-.985,0,0,2,0),P("tag",SH_PLATE,AXIS_Z,.26,.13,.04,0,-.86,.29,0,3,0)),
+// A toy pond yacht, rigged as a sloop, which is what the ten parts below always
+// claimed to be and never looked like. What was here before put the hull on an
+// AXIS_Y wedge - and an AXIS_Y wedge is a tent: a full rectangle at the bottom
+// narrowing to a ridge along Z at the top. So the boat's body was a pyramid, the
+// deck plate crossed it at its widest point and stuck out either side like a
+// pair of wings, both sails hung beside the mast instead of off it, the boom
+// crossed them at half their height, and the rudder was at the bow with the
+// anchor back at the stern.
+//
+// The reference is a wooden pond yacht: pointed bow, level deck, a fin keel
+// under the middle, the rudder at the stern, one mast stepped just forward of
+// centre, the mainsail behind it with a boom along its foot, and a small jib in
+// front. Every line below is one of those.
+//
+// The bow is +X, where the old kit's was -X, because the point has to come out
+// of the geometry rather than be asserted by a part called "bow". SH_WEDGE on
+// AXIS_X is the only primitive in this file that tapers along the model's
+// length, and it only ever tapers towards +X. Nothing tapers horizontally: the
+// wedge narrows its local X as its local Y rises, and none of the three axis
+// permutations maps that pair onto world X and world Z. So the hull thins in
+// height towards the bow rather than in beam, and the deck is kept to the aft
+// two thirds - what shows forward of it is then a raked foredeck rather than a
+// gap underneath one.
+KIT("Sailboat",1, P("hull",SH_WEDGE,AXIS_X,1.50,.38,.50,-.10,-.62,0,-1,2,0),P("deck",SH_PLATE,AXIS_Y,.95,.07,.44,-.34,-.40,0,0,3,0),P("anchor",SH_ROD,AXIS_Y,.09,.22,.09,.18,-.50,0,0,0,0),P("rudder",SH_PLATE,AXIS_Y,.14,.30,.05,-.86,-.88,0,0,2,0),P("mast",SH_ROD,AXIS_Y,.09,1.40,.09,.04,.28,0,1,3,0),P("boom",SH_ROD,AXIS_X,.78,.07,.07,-.36,-.30,0,4,3,0),P("main sail",SH_WEDGE,AXIS_Y,.78,1.10,.04,-.33,.31,0,4,0,0),P("front sail",SH_WEDGE,AXIS_Y,.46,.78,.04,.29,.15,0,4,0,0),P("flag",SH_PLATE,AXIS_Z,.24,.13,.03,-.09,.92,0,4,2,0),P("keel",SH_PLATE,AXIS_Y,.58,.40,.06,-.16,-.94,0,0,2,0)),
 // Nose cone, both side fins and the rear fin ask to sit exactly on the tube's
 // surface rather than inside it - the cone's base on the body's top face, each
 // fin root on the 0.25 radius. resolveAssemblyTargets pulls each of them back to
@@ -502,14 +538,14 @@ KIT("Sailboat",1, P("hull",SH_WEDGE,AXIS_Y,1.5,.45,.5,0,-.55,0,-1,1,0),P("keel",
 // off the flame (parent 8) instead of the nozzle, and the flame is shortened to
 // 0.28 so the resolver seats the two exactly at the 0.042 join. The cost is one
 // step of build order - the flame must be fitted before the base plate.
-KIT("Rocket",1, P("nose cone",SH_CONE,AXIS_Y,.48,.7,.48,0,1.05,0,-1,2,0),P("rocket body",SH_CYLINDER,AXIS_Y,.5,1.4,.5,0,.0,0,0,0,0),PAIR_X("fin left","fin right",SH_WEDGE,AXIS_X,.55,.35,.08,.38,-.48,0,1,2,0),P("fin rear",SH_WEDGE,AXIS_Z,.08,.35,.55,0,-.48,-.38,1,2,0),P("nozzle",SH_BELL,AXIS_Y,.36,.35,.36,0,-.875,0,1,3,0),P("window",SH_CYLINDER,AXIS_Z,.16,.05,.16,0,.18,.25,1,1,0),P("band",SH_CYLINDER,AXIS_Y,.54,.12,.54,0,-.22,0,1,2,0),P("flame",SH_CONE,AXIS_Y,.22,.28,.22,0,-1.18,0,5,3,0),P("stand",SH_BOX,AXIS_Y,.8,.12,.6,0,-1.28,0,8,0,0)),
+KIT("Rocket",1, P("nose cone",SH_CONE,AXIS_Y,.48,.7,.48,0,1.05,0,-1,2,0),P("rocket body",SH_CYLINDER,AXIS_Y,.5,1.4,.5,0,.0,0,0,0,0),PAIR_X("fin left","fin right",SH_WEDGE,AXIS_X,.35,.55,.08,.38,-.48,0,1,2,0),P("fin rear",SH_WEDGE,AXIS_Z,.08,.55,.35,0,-.48,-.38,1,2,0),P("nozzle",SH_BELL,AXIS_Y,.36,.35,.36,0,-.875,0,1,3,0),P("window",SH_CYLINDER,AXIS_Z,.16,.05,.16,0,.18,.25,1,1,0),P("band",SH_CYLINDER,AXIS_Y,.54,.12,.54,0,-.22,0,1,2,0),P("flame",SH_CONE,AXIS_Y,.22,.28,.22,0,-1.18,0,5,3,0),P("stand",SH_BOX,AXIS_Y,.8,.12,.6,0,-1.28,0,8,0,0)),
 // Table fan reads from its silhouette: a circular guard in front of a motor,
 // three radial blades, a narrow upright neck, and a weighted desk base.
 // Two runners: the fan body and rear guard first, then the front guard and
 // three separately cut blades.  This matches how a real two-shell fan cage
 // encloses its rotor during final assembly.
 KIT("Desk Fan",2, P("base",SH_BOX,AXIS_Y,1.18,.18,.72,0,-.88,0,-1,0,0),PAIR_X("button left","button right",SH_CYLINDER,AXIS_Y,.15,.08,.15,.17,-.72,-.28,0,3,0),P("triangular stand",SH_WEDGE,AXIS_Y,.62,.65,.45,0,-.45,.15,0,1,0),P("motor and hub",SH_CYLINDER,AXIS_Z,.46,.46,.46,0,.10,-.02,3,0,0),P("back grill",SH_GRILL,AXIS_Z,1.22,1.22,.12,0,.12,-.20,4,0,0),P("front grill",SH_GRILL,AXIS_Z,1.22,1.22,.12,0,.12,-.53,5,0,1),PR("blade one",SH_FAN_BLADE,AXIS_Z,.48,.32,.10,0,.10,-.36,0.00f,4,1,1),PR("blade two",SH_FAN_BLADE,AXIS_Z,.48,.32,.10,0,.10,-.36,2.0944f,4,1,1),PR("blade three",SH_FAN_BLADE,AXIS_Z,.48,.32,.10,0,.10,-.36,4.1888f,4,1,1)),
-KIT("Friendly Robot",1, P("head",SH_BOX,AXIS_Y,.6,.5,.4,0,.55,0,-1,3,0),P("face",SH_PLATE,AXIS_Z,.4,.18,.04,0,.55,.23,0,1,0),P("torso",SH_BOX,AXIS_Y,.8,.7,.35,0,.0,0,0,0,0),P("hip",SH_BOX,AXIS_Y,.5,.18,.3,0,-.43,0,2,1,0),PAIR_X("arm L","arm R",SH_ROD,AXIS_Y,.16,.65,.16,.52,-.02,0,2,1,0),PAIR_X("leg L","leg R",SH_ROD,AXIS_Y,.22,.7,.22,.22,-.78,0,3,3,0),P("antenna",SH_ROD,AXIS_Y,.08,.35,.08,0,.95,0,0,2,0),P("pack",SH_BOX,AXIS_Y,.45,.5,.18,0,.0,-.28,2,0,0)),
+KIT("Friendly Robot",1, P("head",SH_BOX,AXIS_Y,.46,.40,.34,0,.50,0,-1,3,0),P("face",SH_PLATE,AXIS_Z,.30,.14,.04,0,.52,.20,0,1,0),P("torso",SH_BOX,AXIS_Y,.8,.7,.35,0,.0,0,0,0,0),P("hip",SH_BOX,AXIS_Y,.5,.18,.3,0,-.43,0,2,1,0),PAIR_X("arm L","arm R",SH_ROD,AXIS_Y,.16,.65,.16,.52,-.02,0,2,1,0),PAIR_X("leg L","leg R",SH_ROD,AXIS_Y,.22,.7,.22,.22,-.78,0,3,3,0),P("antenna",SH_ROD,AXIS_Y,.08,.32,.08,0,.82,0,0,2,0),P("pack",SH_BOX,AXIS_Y,.45,.5,.18,0,.0,-.28,2,0,0)),
 KIT("Space Rover",1, P("chassis",SH_WEDGE,AXIS_Y,1.3,.35,.7,0,-.45,0,-1,0,0),P("cabin",SH_BOX,AXIS_Y,.6,.45,.5,0,-.05,0,0,3,0),P("antenna",SH_ROD,AXIS_Y,.06,.55,.06,0,.42,0,1,2,0),PAIR_X("wheel FL","wheel FR",SH_WHEEL,AXIS_X,.18,.36,.36,.5,-.72,.32,0,3,0),PAIR_X("wheel RL","wheel RR",SH_WHEEL,AXIS_X,.18,.36,.36,.5,-.72,-.32,0,3,0),P("bumper",SH_ROD,AXIS_X,1.1,.1,.1,0,-.48,.42,0,2,0),P("camera",SH_CYLINDER,AXIS_Z,.14,.1,.14,.25,.08,.3,1,1,0),P("panel",SH_PLATE,AXIS_Y,.6,.04,.4,-.35,-.05,.15,1,3,0)),
 KIT("Fire Engine",2, P("cab",SH_BOX,AXIS_Y,.65,.6,.55,-.35,-.1,0,-1,2,0),P("body",SH_BOX,AXIS_Y,1.0,.55,.6,.35,-.2,0,0,2,0),P("ladder",SH_ROD,AXIS_X,1.0,.1,.1,.55,.3,0,1,0,1),PAIR_X("wheel","wheel",SH_WHEEL,AXIS_X,.16,.3,.3,.48,-.7,.32,0,3,1),PAIR_X("wheel","wheel",SH_WHEEL,AXIS_X,.16,.3,.3,.48,-.7,-.32,0,3,1),P("light",SH_PLATE,AXIS_Y,.3,.05,.18,-.35,.25,.25,0,1,1),P("hose",SH_CYLINDER,AXIS_Z,.22,.08,.22,.45,.0,.34,1,3,1),P("bumper",SH_ROD,AXIS_X,1.2,.1,.1,.35,-.45,.05,1,0,1)),
 };
@@ -532,12 +568,25 @@ KIT("Fire Engine",2, P("cab",SH_BOX,AXIS_Y,.65,.6,.55,-.35,-.1,0,-1,2,0),P("body
 //                   drawn 0.10 bar hung clear under the cabin. Re-authored at
 //                   0.16 square so the box and the bar are the same object.
 static const kitDef kitDefsLate[6] = {
-	KIT("Pirate Ship",3,P("hull",SH_WEDGE,AXIS_Y,1.6,.5,.6,0,-.55,0,-1,2,0),P("deck",SH_PLATE,AXIS_Y,1.25,.08,.5,0,-.28,0,0,2,0),P("mast front",SH_ROD,AXIS_Y,.1,1.3,.1,-.35,.38,0,1,3,1),P("mast rear",SH_ROD,AXIS_Y,.1,1.15,.1,.38,.3,0,1,3,1),P("sail front",SH_WEDGE,AXIS_Y,.55,.7,.05,-.1,.55,0,2,0,1),P("sail rear",SH_WEDGE,AXIS_Y,.5,.62,.05,.62,.48,0,3,0,1),P("bow",SH_WEDGE,AXIS_Y,.5,.35,.45,-.85,-.625,0,0,2,2),P("rudder",SH_PLATE,AXIS_Z,.2,.4,.05,.70,-.62,0,0,2,2),P("cannon",SH_ROD,AXIS_X,.42,.12,.12,.1,-.22,.22,1,3,2),P("anchor",SH_ROD,AXIS_Y,.12,.35,.12,-.65,-.7,0,0,3,2)),
+	// Same fault the Sailboat had, and the same fix. The hull was an AXIS_Y wedge,
+	// which is a tent - widest on the mat, narrowing to a ridge at the top - so the
+	// ship was a pyramid with a deck plate laid across its middle. On top of that
+	// the two sails were authored a quarter of a unit to one side of the masts they
+	// hang on, so they floated alongside the rigging instead of being carried by it.
+	//
+	// Now: an AXIS_X wedge hull that tapers to a bow at +X, a deck over the aft two
+	// thirds with a raised stern castle on it (which is what the "bow" part became -
+	// a wedge hull already has a bow, and the aftercastle is the silhouette that
+	// says galleon), two masts stepped through the deck, and a square sail CENTRED
+	// on each mast so the mast runs up through it the way a square rig actually
+	// works. Rudder at the stern, one cannon out over the rail, pennant at the
+	// masthead. Ten parts and three runners, unchanged.
+	KIT("Pirate Ship",3,P("hull",SH_WEDGE,AXIS_X,1.60,.42,.58,-.06,-.62,0,-1,2,0),P("deck",SH_PLATE,AXIS_Y,1.05,.07,.50,-.16,-.40,0,0,3,0),P("stern castle",SH_BOX,AXIS_Y,.34,.26,.44,-.62,-.22,0,1,2,0),P("mast front",SH_ROD,AXIS_Y,.09,1.25,.09,.22,.25,0,1,3,1),P("mast rear",SH_ROD,AXIS_Y,.09,1.05,.09,-.40,.15,0,1,3,1),P("sail front",SH_PLATE,AXIS_Z,.62,.62,.04,.22,.34,0,3,0,1),P("sail rear",SH_PLATE,AXIS_Z,.54,.54,.04,-.40,.26,0,4,0,1),P("rudder",SH_PLATE,AXIS_Y,.14,.30,.05,-.86,-.84,0,0,2,2),P("cannon",SH_ROD,AXIS_X,.40,.11,.11,.12,-.20,.24,1,3,2),P("flag",SH_PLATE,AXIS_Z,.22,.13,.03,.14,.82,0,3,2,2)),
 	KIT("Steam Locomotive",3,P("boiler",SH_CYLINDER,AXIS_X,1.25,.55,.55,0,-.25,0,-1,3,0),P("cab",SH_BOX,AXIS_Y,.55,.65,.6,.55,.0,0,0,2,0),P("chimney",SH_TUBE,AXIS_Y,.3,.55,.3,-.38,.28,0,0,3,0),PAIR_Z("wheel FL","wheel FR",SH_WHEEL,AXIS_X,.16,.34,.34,-.45,-.49,.32,0,2,1),PAIR_Z("wheel RL","wheel RR",SH_WHEEL,AXIS_X,.16,.34,.34,.3,-.49,.32,0,2,1),P("tender",SH_BOX,AXIS_Y,.6,.5,.55,1.0,-.35,0,1,3,2),P("lamp",SH_CYLINDER,AXIS_Z,.14,.08,.14,-.72,-.2,.28,0,1,2),P("coupler",SH_ROD,AXIS_X,.32,.08,.08,1.35,-.42,0,7,3,2)),
-	KIT("Spacecraft",4,P("core",SH_CYLINDER,AXIS_X,1.3,.5,.5,0,-.15,0,-1,0,0),P("nose",SH_CONE,AXIS_X,.5,.5,.5,-.85,-.15,0,0,0,0),PAIR_Z("pod L","pod R",SH_CYLINDER,AXIS_X,.65,.3,.3,.05,-.18,.5,0,1,1),PAIR_Z("wing L","wing R",SH_WEDGE,AXIS_X,.08,.6,.8,.18,-.18,.55,0,2,1),PAIR_Z("engine L","engine R",SH_CONE,AXIS_X,.3,.28,.3,.78,-.18,.3,0,3,2),P("canopy",SH_DOME,AXIS_Y,.42,.25,.3,-.15,.2,0,0,1,3),P("antenna",SH_ROD,AXIS_Y,.06,.45,.06,-.15,.42,0,8,3,3)),
-	KIT("Dinosaur",4,P("body",SH_CYLINDER,AXIS_X,1.3,.55,.55,0,-.3,0,-1,1,0),P("head",SH_WEDGE,AXIS_X,.55,.45,.45,-.8,-.05,0,0,1,0),P("tail",SH_CONE,AXIS_X,.85,.3,.3,.9,-.35,0,0,1,1),PAIR_Z("leg FL","leg FR",SH_ROD,AXIS_Y,.18,.65,.18,-.38,-.75,.28,0,3,1),P("leg RL",SH_ROD,AXIS_Y,.18,.65,.18,.35,-.75,.28,0,3,2),P("leg RR",SH_ROD,AXIS_Y,.18,.65,.18,.35,-.75,-.28,0,3,2),P("plate L",SH_WEDGE,AXIS_Y,.25,.35,.12,-.1,.25,.22,0,2,2),P("plate R",SH_WEDGE,AXIS_Y,.25,.35,.12,.25,.25,-.22,0,2,3),P("horn",SH_CONE,AXIS_X,.16,.2,.16,-1.05,.15,0,1,3,3)),
-	KIT("Rescue Helicopter",4,P("cabin",SH_BOX,AXIS_Y,.8,.5,.55,-.25,-.15,0,-1,2,0),P("nose",SH_WEDGE,AXIS_X,.45,.35,.45,-.75,-.18,0,0,2,0),P("tail boom",SH_ROD,AXIS_X,1.25,.16,.16,.65,-.1,0,0,1,1),P("tail rotor",SH_CYLINDER,AXIS_X,.32,.06,.32,1.25,-.08,0,2,3,1),PAIR_Z("skid L","skid R",SH_ROD,AXIS_X,.9,.16,.16,-.05,-.41,.24,0,3,2),P("door",SH_PLATE,AXIS_Z,.35,.35,.04,-.1,-.1,.3,0,1,2),P("rotor hub",SH_CYLINDER,AXIS_Y,.2,.12,.2,-.05,.35,0,0,3,3),P("rotor blade",SH_PLATE,AXIS_X,1.5,.05,.12,-.05,.45,0,7,3,3),P("winch",SH_ROD,AXIS_Y,.08,.35,.08,-.35,-.10,.28,0,1,3)),
-	KIT("Large Mech",4,P("torso",SH_BOX,AXIS_Y,.8,.7,.4,0,.0,0,-1,1,0),P("head",SH_BOX,AXIS_Y,.45,.4,.35,0,.58,0,0,0,0),PAIR_X("shoulder L","shoulder R",SH_WEDGE,AXIS_X,.45,.3,.35,.55,.22,0,0,2,1),P("arm L",SH_ROD,AXIS_Y,.18,.7,.18,-.62,-.25,0,2,1,2),P("arm R",SH_ROD,AXIS_Y,.18,.7,.18,.62,-.25,0,3,1,2),PAIR_X("leg L","leg R",SH_ROD,AXIS_Y,.25,.85,.25,.25,-.82,0,0,3,3),P("backpack",SH_BOX,AXIS_Y,.55,.5,.2,0,.0,-.32,0,1,3),P("shield",SH_CURVE,AXIS_Z,.45,.7,.08,-.95,-.18,.05,4,2,3))
+	KIT("Spacecraft",4,P("core",SH_CYLINDER,AXIS_X,1.3,.5,.5,0,-.15,0,-1,0,0),P("nose",SH_CONE,AXIS_X,.5,.5,.5,-.85,-.15,0,0,0,0),PAIR_Z("pod L","pod R",SH_CYLINDER,AXIS_X,.65,.3,.3,.05,-.18,.5,0,1,1),PAIR_Z("wing L","wing R",SH_WEDGE,AXIS_X,.6,.08,.8,.18,-.18,.55,0,2,1),PAIR_Z("engine L","engine R",SH_CONE,AXIS_X,.3,.28,.3,.78,-.18,.3,0,3,2),P("canopy",SH_DOME,AXIS_Y,.42,.25,.3,-.15,.2,0,0,1,3),P("antenna",SH_ROD,AXIS_Y,.06,.45,.06,-.15,.42,0,8,3,3)),
+	KIT("Dinosaur",4,P("body",SH_CYLINDER,AXIS_X,1.3,.55,.55,0,-.3,0,-1,1,0),P("head",SH_WEDGE,AXIS_X,.45,.55,.45,-.8,-.05,0,0,1,0),P("tail",SH_CONE,AXIS_X,.85,.3,.3,.9,-.35,0,0,1,1),PAIR_Z("leg FL","leg FR",SH_ROD,AXIS_Y,.18,.65,.18,-.38,-.75,.28,0,3,1),P("leg RL",SH_ROD,AXIS_Y,.18,.65,.18,.35,-.75,.28,0,3,2),P("leg RR",SH_ROD,AXIS_Y,.18,.65,.18,.35,-.75,-.28,0,3,2),P("plate L",SH_WEDGE,AXIS_Y,.25,.35,.12,-.1,.25,.22,0,2,2),P("plate R",SH_WEDGE,AXIS_Y,.25,.35,.12,.25,.25,-.22,0,2,3),P("horn",SH_CONE,AXIS_X,.16,.2,.16,-1.05,.15,0,1,3,3)),
+	KIT("Rescue Helicopter",4,P("cabin",SH_BOX,AXIS_Y,.8,.5,.55,-.25,-.15,0,-1,2,0),P("nose",SH_WEDGE,AXIS_X,.35,.45,.45,-.75,-.18,0,0,2,0),P("tail boom",SH_ROD,AXIS_X,1.25,.16,.16,.65,-.1,0,0,1,1),P("tail rotor",SH_CYLINDER,AXIS_X,.32,.06,.32,1.25,-.08,0,2,3,1),PAIR_Z("skid L","skid R",SH_ROD,AXIS_X,.9,.16,.16,-.05,-.41,.24,0,3,2),P("door",SH_PLATE,AXIS_Z,.35,.35,.04,-.1,-.1,.3,0,1,2),P("rotor hub",SH_CYLINDER,AXIS_Y,.2,.12,.2,-.05,.35,0,0,3,3),P("rotor blade",SH_PLATE,AXIS_X,1.5,.05,.12,-.05,.45,0,7,3,3),P("winch",SH_ROD,AXIS_Y,.08,.35,.08,-.35,-.10,.28,0,1,3)),
+	KIT("Large Mech",4,P("torso",SH_BOX,AXIS_Y,.8,.7,.4,0,.0,0,-1,1,0),P("head",SH_BOX,AXIS_Y,.45,.4,.35,0,.58,0,0,0,0),PAIR_X("shoulder L","shoulder R",SH_WEDGE,AXIS_X,.3,.45,.35,.55,.22,0,0,2,1),P("arm L",SH_ROD,AXIS_Y,.18,.7,.18,-.62,-.10,0,2,1,2),P("arm R",SH_ROD,AXIS_Y,.18,.7,.18,.62,-.10,0,3,1,2),PAIR_X("leg L","leg R",SH_ROD,AXIS_Y,.25,.85,.25,.25,-.82,0,0,3,3),P("backpack",SH_BOX,AXIS_Y,.55,.5,.2,0,.0,-.32,0,1,3),P("shield",SH_CURVE,AXIS_Z,.45,.7,.08,-.95,-.18,.05,4,2,3))
 };
 
 const char* meshKitName(void) { return activeKitName; }
@@ -856,12 +905,38 @@ static void addWheelAxis(float cx, float cy, float cz, const float s[3], partAxi
 	}
 }
 
+// The three sizes a part authors, seen from inside the primitive.
+//
+// axisMap turns local +Y onto whichever world axis the part was authored along,
+// so an emitter that thinks in local x/y/z has to pick its extents up the same
+// way round. The cylinder does this inline and gets away with it because all it
+// needs is one radius and one height; the three below each need all three, and
+// getting the permutation subtly wrong there would show up as a part that is
+// the right shape and the wrong proportions only on X or only on Z.
+static void axisExtents(partAxis axis, const float s[3], float out[3])
+{
+	if (axis == AXIS_X)      { out[0] = s[1]; out[1] = s[0]; out[2] = s[2]; }
+	else if (axis == AXIS_Z) { out[0] = s[0]; out[1] = s[2]; out[2] = s[1]; }
+	else                     { out[0] = s[0]; out[1] = s[1]; out[2] = s[2]; }
+}
+
 static void addWedgeAxis(float cx, float cy, float cz, const float s[3], partAxis axis)
 {
 	// A true triangular prism: rectangular base, ridge along local Z, five faces
 	// closed by eight triangles.  Every triangle is wound counter-clockwise seen
 	// from outside, to match addBox under the scene-wide GPU_CULL_BACK_CCW state.
-	float x=s[0]*.5f, y=s[1]*.5f, z=s[2]*.5f;
+	//
+	// s arrives in WORLD axes, like it does at every other emitter here, so it has
+	// to come through axisExtents before the prism can use it. This function used
+	// to skip that and hand s straight to the prism as if it were already local,
+	// so a wedge on AXIS_X or AXIS_Z drew with two of its extents swapped and
+	// spilled out of the box the rest of the game had reserved for it - the tap
+	// target, the runner cell and the collision volume are all read off s. That
+	// was harmless while every non-Y wedge in the kits was nearly square, and not
+	// harmless at all on a long low boat hull.
+	float l[3];
+	axisExtents(axis, s, l);
+	float x=l[0]*.5f, y=l[1]*.5f, z=l[2]*.5f;
 	const float p[6][3]={{-x,-y,-z},{x,-y,-z},{x,-y,z},{-x,-y,z},{0,y,-z},{0,y,z}};
 	const int ix[24]={
 		0,1,2, 0,2,3,   // base
@@ -1094,21 +1169,6 @@ static void addStar5(float cx, float cy, float cz, const float s[3])
 		};
 		memcpy(&meshData[meshCount], edge, sizeof(edge)); meshCount += 6;
 	}
-}
-
-// The three sizes a part authors, seen from inside the primitive.
-//
-// axisMap turns local +Y onto whichever world axis the part was authored along,
-// so an emitter that thinks in local x/y/z has to pick its extents up the same
-// way round. The cylinder does this inline and gets away with it because all it
-// needs is one radius and one height; the three below each need all three, and
-// getting the permutation subtly wrong there would show up as a part that is
-// the right shape and the wrong proportions only on X or only on Z.
-static void axisExtents(partAxis axis, const float s[3], float out[3])
-{
-	if (axis == AXIS_X)      { out[0] = s[1]; out[1] = s[0]; out[2] = s[2]; }
-	else if (axis == AXIS_Z) { out[0] = s[0]; out[1] = s[2]; out[2] = s[1]; }
-	else                     { out[0] = s[0]; out[1] = s[1]; out[2] = s[2]; }
 }
 
 // All three primitives below are drawn inside the box they were authored as and
@@ -1378,11 +1438,32 @@ static void addCurvedPanel(float cx, float cy, float cz, const float s[3], partA
 	// and never more than half the bulge or the inside would poke out the top.
 	const float th = fminf(fminf(w, rise)*.16f, rise*.5f);
 	const float hz = dep*.5f;
+	// The arc above puts the OUTER surface exactly in the box: its crown touches
+	// the top and its two ends touch the bottom corners, by construction. The
+	// inner surface is that same arc one thickness closer to the centre, and a
+	// smaller radius at the same angle sits lower - so the underside of the shell
+	// hung th*cos(a) below the box it was authored as, on every curved panel in
+	// the game. Squashing the inner arc towards the crown by exactly that much
+	// lands its ends on the bottom of the box instead of through it.
+	//
+	// Only the INNER arc is squashed. Squashing the whole piece also fixes the
+	// overhang, and that is what this did at first, but it drags the outer
+	// surface's ends up off the bottom corners too - 0.0088 on the mech's shield,
+	// about 69% of that panel's own thickness - trading an overhang for a gap and
+	// making the comment above false. The spill audit cannot see that, because it
+	// is deliberately one-sided and under-filling is not a fault to it. The outer
+	// arc already fits, so the correct move is to leave it alone.
+	const float top  = rise*.5f;
+	const float sink = th*cosf(a);
+	const float k    = rise / (rise + sink);
 
 	// A point on the arc at angle t and radius rad, at depth z. Every vertex in
-	// this primitive is one of these, so the arc is only written down once.
+	// this primitive is one of these, so the arc is only written down once. rad is
+	// only ever R or R-th, and th is always > 0, so the test picks out exactly the
+	// inner surface.
 	#define CURVE_VTX(t, rad, z, nx, ny, nz) \
-		emitAxisVertex(axis,cx,cy,cz, (rad)*sinf(t), y0 + (rad)*cosf(t), (z), (nx), (ny), (nz))
+		emitAxisVertex(axis,cx,cy,cz, (rad)*sinf(t), \
+			top - ((rad) < R ? k : 1.0f)*(top - (y0 + (rad)*cosf(t))), (z), (nx), (ny), (nz))
 
 	for (int i = 0; i < CURVE_SEG; i++)
 	{
@@ -1623,6 +1704,34 @@ bool meshAuditAllKits(void)
 			if (parts[i].firstVertex < 0 || parts[i].vertexCount <= 0 || parts[i].firstVertex+parts[i].vertexCount > meshCount ||
 				stubCount[i] <= 0 || stubFirst[i]+stubCount[i] > meshCount) row=false;
 		}
+		// Nothing may DRAW outside the box the rest of the game reserved for it.
+		// That one box is the part's tap target, its cell on the runner and its
+		// collision volume all at once, so a primitive that spills past it is a
+		// piece the player can see and cannot pick up, sitting through whatever was
+		// packed beside it - and every box-against-box audit here agrees it is
+		// fine, because they all measure the box and none of them measures the
+		// triangles. This walks the emitted vertices instead.
+		//
+		// One-sided on purpose: a cone, a dome or a wheel legitimately fills less
+		// than its box. Only overflow is a fault. The nub is skipped because it is
+		// authored to straddle the cut face and is meant to stand proud.
+		for (int i=0;i<partCount;i++) {
+			const partSpec* sp = &activeSpecs[i];
+			const float c[3] = { sp->body.cx + sp->silOff[0], sp->body.cy + sp->silOff[1], sp->body.cz };
+			const float e[3] = { sp->silExt[0], sp->silExt[1], sp->body.sz };
+			const int lo = parts[i].firstVertex + parts[i].nubVertexCount;
+			const int hi = parts[i].firstVertex + parts[i].vertexCount;
+			bool spilled = false;
+			for (int v=lo; v<hi && !spilled; v++) for (int a=0;a<3;a++) {
+				const float over = fabsf(meshData[v].position[a] - c[a]) - e[a]*.5f;
+				// 2 mm of kit space, well under the smallest authored feature, so
+				// float rounding in axisMap cannot raise a false alarm.
+				if (over > 0.002f) {
+					printf("SPILL L%02d %s axis%d by %.3f\n", level, parts[i].name, a, over);
+					spilled = true; row = false; break;
+				}
+			}
+		}
 		if (meshBoxCount() > peak) { peak = meshBoxCount(); peakLevel = level; }
 		if(!row) printf("GEOMETRY AUDIT L%02d FAIL parts=%d runners=%d verts=%d dropped=%d\n",level,partCount,activeRunners,meshCount,meshDroppedCount());
 		if(row) passed++; else ok=false;
@@ -1688,9 +1797,21 @@ static bool solidContains(const kitPartDef* p, const float c[3], const float w[3
 	}
 	case SH_WEDGE:
 	{
+		// axisUnmap hands back a point in the prism's LOCAL frame, so the extents
+		// it is measured against have to be local too. size is world, exactly as
+		// it is for every other shape here, so it goes through axisExtents first -
+		// the same conversion addWedgeAxis does before it emits a triangle.
+		//
+		// This branch used to compare the local point against the world size
+		// directly. That was right only while addWedgeAxis had the matching bug of
+		// consuming its size as if it were already local; once that was fixed this
+		// was left modelling a wedge the game no longer draws, and it read a 1.60
+		// long hull as 0.42 long. Four parts across four kits were then reported
+		// as touching nothing when they were sitting in solid material.
+		float e[3]; axisExtents(p->axis, s, e);
 		axisUnmap(p->axis, c, w, l);
-		if (fabsf(l[1]) > s[1]*.5f || fabsf(l[2]) > s[2]*.5f) return false;
-		return fabsf(l[0]) <= s[0]*.5f*(s[1]*.5f - l[1])/s[1];
+		if (fabsf(l[1]) > e[1]*.5f || fabsf(l[2]) > e[2]*.5f) return false;
+		return fabsf(l[0]) <= e[0]*.5f*(e[1]*.5f - l[1])/e[1];
 	}
 	case SH_DOME: case SH_TUBE: case SH_BELL:
 	{
@@ -1721,14 +1842,17 @@ static bool solidContains(const kitPartDef* p, const float c[3], const float w[3
 // and the safety cost it its accuracy: the helicopter rotor blade is a plate
 // 0.05 thick on an AXIS_X record, so the superset widened that axis to 1.5 and a
 // fourteen-step grid stepped 0.107 at a time straight over a 0.05 solid, finding
-// nothing inside the part at all. Only the wedge authors its size in local
-// space; every other shape here is already world-aligned, because the round
-// emitters and axisExtents both pre-compensate for the rotation.
+// nothing inside the part at all.
+//
+// Every shape here authors its size in WORLD axes, the wedge included, so the
+// box is the size and no permutation is wanted. The wedge used to be the one
+// exception and got an axisExtents call here to match; that exception only ever
+// existed to mirror a bug inside addWedgeAxis, and when that bug was fixed this
+// line went on permuting a size that no longer needed it - turning the sailboat
+// hull's 1.50 x 0.38 box into 0.38 x 1.50 and putting its own rudder outside it.
 static void solidBounds(const kitPartDef* p, const float c[3], float lo[3], float hi[3])
 {
-	float e[3];
-	if (p->shape == SH_WEDGE) axisExtents(p->axis, p->size, e);
-	else                      { e[0]=p->size[0]; e[1]=p->size[1]; e[2]=p->size[2]; }
+	const float* e = p->size;
 	for (int a = 0; a < 3; a++) { lo[a] = c[a]-e[a]*.5f; hi[a] = c[a]+e[a]*.5f; }
 }
 

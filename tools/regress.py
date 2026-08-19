@@ -50,9 +50,17 @@ EMU_PS1 = Path(__file__).resolve().parent / "emu.ps1"
 #   flag    : the TEST_* macro to switch on
 #   verdict : regex identifying the audit's final line
 #   passing : regex the same line must also match to count as a pass
+#   every   : the flag prints more than one verdict and ALL of them must pass
+#             (without it only the last matching line is read)
 AUDITS = [
-    dict(name="kits",      flag="TEST_AUDIT_ALL_KITS",
-         verdict=r"^GAMEPLAY AUDIT .*$",           passing=r"OK\s*$"),
+    # TEST_AUDIT_ALL_KITS runs two separate checks and prints a summary for each:
+    # meshAuditAllKits' GEOMETRY line and main.c's GAMEPLAY line. The GAMEPLAY
+    # line is printed second, so reading "the last verdict" read only that one and
+    # a GEOMETRY failure was reported here as a pass - which is what happened on
+    # 2026-08-19, on a build deliberately broken to prove the geometry check
+    # worked. Both lines are verdicts; both have to be OK.
+    dict(name="kits",      flag="TEST_AUDIT_ALL_KITS", every=True,
+         verdict=r"^(GAMEPLAY|GEOMETRY) AUDIT \d+/\d+ .*$", passing=r"OK\s*$"),
     dict(name="camidle",   flag="TEST_CAMERA_IDLE_AUDIT",
          verdict=r"^CAM IDLE .*$",                 passing=r"^(?!.*FAIL).*$"),
     dict(name="workspace", flag="TEST_LEVEL1_WORKSPACE_AUDIT",
@@ -179,9 +187,16 @@ def run_one(audit):
         return dict(audit, status="NO VERDICT", line="log has no line matching " + audit["verdict"])
 
     # The last one: an audit that prints per-level failures before its summary
-    # would otherwise be read off the wrong line.
-    line = hits[-1].rstrip()
-    passed = re.search(audit["passing"], line) is not None
+    # would otherwise be read off the wrong line. Unless the audit prints several
+    # summaries, in which case every one of them counts and the failing one is
+    # what gets shown.
+    if audit.get("every"):
+        bad = [l for l in hits if not re.search(audit["passing"], l)]
+        line = (bad[0] if bad else hits[-1]).rstrip()
+        passed = not bad
+    else:
+        line = hits[-1].rstrip()
+        passed = re.search(audit["passing"], line) is not None
     return dict(audit, status="PASS" if passed else "FAIL", line=line)
 
 
