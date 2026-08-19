@@ -37,7 +37,7 @@
 // offer a pointless update on every check. Filling it in is the only thing
 // needed to switch the check back on, and it is filled in by the same commit
 // that cuts the release so the shipped build cannot lie about itself.
-#define MODELKIT_VERSION "0.3"
+#define MODELKIT_VERSION "0.4"
 
 // Whether the line above has been filled in. Everything that prints or compares
 // the version goes through this so there is one answer to "do we know".

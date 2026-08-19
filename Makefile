@@ -67,6 +67,15 @@ CFLAGS	:=	-g -Wall -Werror -O2 -mword-relocations \
 
 CFLAGS	+=	$(INCLUDE) -D__3DS__
 
+# Switches on one TEST_* flag for one build, without editing source/debug.h:
+#
+#     make HARNESS=-DTEST_PAINT_AUDIT=1
+#
+# This is what tools/regress.py drives. Empty for a normal build, so a shipped
+# binary cannot pick a flag up by accident - the flags themselves default to 0
+# in debug.h and this is the only supported way to override one.
+CFLAGS	+=	$(HARNESS)
+
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++11
 
 ASFLAGS	:=	-g $(ARCH)

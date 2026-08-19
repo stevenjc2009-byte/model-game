@@ -14,6 +14,10 @@ static const char* const englishText[STR_COUNT] =
 	[STR_TITLE]        = "MODEL KIT",
 	[STR_TAGLINE]      = "snip  -  file  -  click it together",
 	[STR_PLAY]         = "Play",
+	[STR_PRE_LOCKED]   = "NOT BUILT YET",
+	[STR_PRE_PARTS]    = "%d parts",
+	[STR_PRE_RUNNERS]  = "%d runners",
+	[STR_PRE_RUNNER_1] = "1 runner",
 	[STR_OPTIONS]      = "Options",
 	[STR_QUIT]         = "Quit",
 
@@ -43,7 +47,6 @@ static const char* const englishText[STR_COUNT] =
 	[STR_UPD_INSTALLED_ROW]     = "Installed  %s",
 	[STR_UPD_NEWEST_ROW]        = "Newest     %s",
 
-	[STR_LEVELS_HDR]   = "Choose a level",
 	[STR_PREV]         = "<",
 	[STR_NEXT]         = ">",
 	[STR_BUILT_TAG]    = "built",
@@ -145,6 +148,12 @@ static const char* const englishText[STR_COUNT] =
 	[STR_C_STATUS_TAP_MOVES]       = "tap a part that moves",
 	[STR_C_STATUS_RAM]             = "RAM %u%%",
 
+	[STR_C_BENCH_STEP]             = "STEP %d/%d",
+	[STR_C_BENCH_COUNTS]           = "snip %d/%d  file %d/%d  fit %d/%d",
+	[STR_C_UNDO_LABEL]             = "UNDO",
+	[STR_C_UNDO_DONE]              = "undone",
+	[STR_C_UNDO_NOTHING]           = "nothing to undo",
+
 	[STR_C_PHOTO_HEADER] = "\n  Photo mode\n\n",
 	[STR_C_PHOTO_NEXT]   = "    X   next angle\n",
 	[STR_C_PHOTO_BACK]   = "    Y   back to the build\n",
@@ -204,6 +213,10 @@ static const char* const frenchText[STR_COUNT] =
 	[STR_TITLE]        = "MAQUETTE",
 	[STR_TAGLINE]      = "découper  -  limer  -  assembler",
 	[STR_PLAY]         = "Jouer",
+	[STR_PRE_LOCKED]   = "PAS ENCORE CONSTRUITE",
+	[STR_PRE_PARTS]    = "%d pieces",
+	[STR_PRE_RUNNERS]  = "%d grappes",
+	[STR_PRE_RUNNER_1] = "1 grappe",
 	[STR_OPTIONS]      = "Options",
 	[STR_QUIT]         = "Quitter",
 
@@ -233,7 +246,6 @@ static const char* const frenchText[STR_COUNT] =
 	[STR_UPD_INSTALLED_ROW]     = "Installée   %s",
 	[STR_UPD_NEWEST_ROW]        = "Dernière    %s",
 
-	[STR_LEVELS_HDR]   = "Choisir un niveau",
 	[STR_PREV]         = "<",
 	[STR_NEXT]         = ">",
 	[STR_BUILT_TAG]    = "fini",
@@ -334,6 +346,12 @@ static const char* const frenchText[STR_COUNT] =
 	[STR_C_STATUS_POSE_HINT]       = "%s - L/R pour poser",
 	[STR_C_STATUS_TAP_MOVES]       = "touchez une piece mobile",
 	[STR_C_STATUS_RAM]             = "RAM %u%%",
+
+	[STR_C_BENCH_STEP]             = "ETAPE %d/%d",
+	[STR_C_BENCH_COUNTS]           = "coupe %d/%d  lime %d/%d  pose %d/%d",
+	[STR_C_UNDO_LABEL]             = "ANNULER",
+	[STR_C_UNDO_DONE]              = "annulé",
+	[STR_C_UNDO_NOTHING]           = "rien à annuler",
 
 	[STR_C_PHOTO_HEADER] = "\n  Mode photo\n\n",
 	[STR_C_PHOTO_NEXT]   = "    X   angle suivant\n",

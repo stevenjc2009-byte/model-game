@@ -37,6 +37,7 @@
 #include "camera.h"
 #include "picking.h"
 #include "debug.h"
+#include "audit_log.h"
 #include "vshader_shbin.h"
 
 // The room the bench sits in: a warm, dim studio. Dark enough that the desk and
@@ -149,7 +150,47 @@ static int uLoc_lightVec, uLoc_lightHalfVec, uLoc_lightClr, uLoc_material;
 // non-uniform scale; see setNormalScale().
 static int uLoc_nrmScale;
 
+// The desk lamp, in view space, and the half-vector that goes with it.
+//
+// LIGHT_VEC is the direction the light TRAVELS; the shader gives a surface
+// max(0, -dot(LIGHT_VEC, N)). Straight down the camera axis would leave every
+// upward-facing surface - the desk, the mat - unlit, so the lamp is set up and
+// to the left of the viewer, the way a desk lamp sits.
+//
+// LIGHT_HALF was a copy of LIGHT_VEC, which meant the specular term the shader
+// computes as max(0, dot(-LIGHT_HALF, N))^n was max(0, -dot(LIGHT_VEC, N))^n -
+// the diffuse term raised to a power, with no eye vector in it anywhere. That
+// is not a highlight: it does not move when the camera moves, it cannot appear
+// anywhere the diffuse term is not already bright, and it sits in exactly the
+// same place on every surface no matter where you are looking from. It read as
+// a slightly harder falloff and nothing else.
+//
+// A real Blinn half-vector is the bisector of "towards the light" and "towards
+// the eye". In view space the eye is at the origin looking down -Z, so towards
+// the eye is +Z for everything on screen: H = normalize(-LIGHT_VEC + (0,0,1)).
+// The shader negates what it is given, so the uniform carries -H.
+//
+//   L = normalize(0.200, 0.550, 0.810)  =  (0.2001, 0.5504, 0.8106)
+//   H = normalize(L + (0,0,1))          =  (0.1052, 0.2892, 0.9515)
+//
+// Using a constant eye direction rather than a per-vertex one is the standard
+// "infinite viewer" simplification, and it is what the fixed-function hardware
+// this shader replaces did too. On a 400x240 screen with a 60-degree field the
+// error is a couple of degrees at the corners - far less than the per-vertex
+// interpolation on a ten-part kit already costs.
+#define LIGHT_VEC_X   (-0.20f)
+#define LIGHT_VEC_Y   (-0.55f)
+#define LIGHT_VEC_Z   (-0.81f)
+#define LIGHT_HALF_X  (-0.1052f)
+#define LIGHT_HALF_Y  (-0.2892f)
+#define LIGHT_HALF_Z  (-0.9515f)
+
 static C3D_Mtx projection;     // what the GPU draws with (tilted for the screen)
+// The level-select preview draws onto the top screen, which is 400x240 where the
+// bench is 320x240. Reusing the bench's projection there would stretch the kit
+// sideways by a quarter, so the preview gets its own - same field of view, same
+// tilt, the other aspect ratio. Built once in sceneInit beside the other two.
+static C3D_Mtx previewProjection;
 // pickProjection - same view, untilted, for hit-testing on the CPU - now lives
 // in picking.c; picking.h supplies the extern declaration.
 
@@ -164,10 +205,15 @@ static C3D_Mtx material =      // unpainted light grey styrene
 	}
 };
 
+// Specular 0.32, up from 0.22, for the same reason the parts went to 0.42 - see
+// the note above materialPartGreen. It is deliberately a shade under them: the
+// runner is the same moulded sheet, so it has to carry the same sheen or the
+// parts look like a different material to the frame they are still attached to,
+// but it is background and the parts are the subject.
 static C3D_Mtx materialRunner = // blue-grey moulded runner, distinct from box
 {
 	{ { { 0.0f, 0.13f, 0.19f, 0.22f } }, { { 0.0f, 0.18f, 0.29f, 0.34f } },
-	  { { 0.0f, 0.22f, 0.22f, 0.22f } }, { { 1.0f, 0.0f, 0.0f, 0.0f } } }
+	  { { 0.0f, 0.32f, 0.32f, 0.32f } }, { { 1.0f, 0.0f, 0.0f, 0.0f } } }
 };
 
 static C3D_Mtx materialSelected = // the part under the stylus, in amber
@@ -216,20 +262,38 @@ static C3D_Mtx materialHover =
 // it also means the runner still reads in greyscale. scratchpad/cvd.py measures
 // every pair under normal, protan and deutan vision and fails under dE 20; run
 // it after touching any of these numbers.
+//
+// Specular 0.42, up from 0.30. Moulded styrene is not matte - it is satin, and
+// the way you tell a plastic part from a painted one is the soft band of light
+// that slides over it as it turns. Until the half-vector was fixed there was no
+// such band: the term was the diffuse level squared, so it sat in the same place
+// on every part regardless of where the camera was and only made the lit side
+// paler. Correcting it removed that false brightness, which on its own would
+// have left the kit flatter than before, so the coefficient comes up to put a
+// real sheen back.
+//
+// 0.42 and not higher because the point is plastic, not lacquer. Specular here
+// is white and adds to all three channels equally, so it desaturates whatever it
+// lands on, and the colour is what tells the parts apart. The yellow is the part
+// that runs out of headroom first: on the level 1 trophy's brightest disc face
+// it measures 247/231/96 at 0.30 and 247/247/112 at 0.42, so the sheen is
+// plainly there while blue stays under half of red and the face still reads as
+// yellow rather than white. Nothing anywhere on the kit reaches 250 on all three
+// channels at this setting.
 static C3D_Mtx materialPartGreen =
 {
 	{ { { 0.0f, 0.13f, 0.27f, 0.12f } }, { { 0.0f, 0.25f, 0.47f, 0.22f } },
-	  { { 0.0f, 0.30f, 0.30f, 0.30f } }, { { 1.0f, 0.0f, 0.0f, 0.0f } } }
+	  { { 0.0f, 0.42f, 0.42f, 0.42f } }, { { 1.0f, 0.0f, 0.0f, 0.0f } } }
 };
 static C3D_Mtx materialPartRed =
 {
 	{ { { 0.0f, 0.04f, 0.05f, 0.20f } }, { { 0.0f, 0.07f, 0.09f, 0.36f } },
-	  { { 0.0f, 0.30f, 0.30f, 0.30f } }, { { 1.0f, 0.0f, 0.0f, 0.0f } } }
+	  { { 0.0f, 0.42f, 0.42f, 0.42f } }, { { 1.0f, 0.0f, 0.0f, 0.0f } } }
 };
 static C3D_Mtx materialPartYellow =
 {
 	{ { { 0.0f, 0.10f, 0.30f, 0.34f } }, { { 0.0f, 0.14f, 0.50f, 0.58f } },
-	  { { 0.0f, 0.30f, 0.30f, 0.30f } }, { { 1.0f, 0.0f, 0.0f, 0.0f } } }
+	  { { 0.0f, 0.42f, 0.42f, 0.42f } }, { { 1.0f, 0.0f, 0.0f, 0.0f } } }
 };
 static C3D_Mtx* partMaterialFor(int i)
 {
@@ -429,6 +493,10 @@ static bool poseMode = false;
 
 static void runCameraIdleAudit(void);
 static void runCeilingAudit(void);
+// Defined below with the rest of gameInit's failure reporting; sceneLoadKit's
+// own VBO-allocation failure reuses it and runs long before that point in the
+// file.
+static void showConsoleAndPause(void);
 
 // Level 1 replaces the text console with this white beginner sheet. It is a
 // screen target in its own right; later levels continue using the console.
@@ -437,6 +505,15 @@ static C3D_RenderTarget* beginnerTarget;
 // sceneExit can take them down alongside the rest of the scene's resources.
 static C3D_RenderTarget* benchTarget;
 static C2D_TextBuf beginnerText;
+// The bench progress tag's own text buffer, deliberately not beginnerText.
+//
+// beginnerText is cleared once a frame by whatever draws the top screen, and on
+// the frames where nothing does - the audit builds, the capture builds, any
+// path where beginnerTopShowing() is false - it is never cleared at all. A tag
+// parsing two lines a frame into a buffer nobody empties fills 4096 glyphs in
+// under a minute and then silently stops rendering. Its own 128-glyph buffer,
+// cleared by the tag itself, cannot be starved by a screen it does not draw.
+static C2D_TextBuf benchText;
 
 #define PAPER_WHITE C2D_Color32(0xFB, 0xFA, 0xF6, 0xFF)
 #define PAPER_INK   C2D_Color32(0x25, 0x25, 0x25, 0xFF)
@@ -448,6 +525,17 @@ static void beginnerLabel(const char* label, float x, float y, float scale, u32 
 {
 	C2D_Text text;
 	C2D_TextParse(&text, beginnerText, label);
+	C2D_TextOptimize(&text);
+	C2D_DrawText(&text, C2D_WithColor, x, y, 0.5f, scale, scale, colour);
+}
+
+// Same again for the bench. Two lines rather than one shared helper with a
+// buffer argument, because every one of beginnerLabel's forty-odd callers would
+// have had to grow a parameter to say the thing they all already say.
+static void benchLabel(const char* label, float x, float y, float scale, u32 colour)
+{
+	C2D_Text text;
+	C2D_TextParse(&text, benchText, label);
 	C2D_TextOptimize(&text);
 	C2D_DrawText(&text, C2D_WithColor, x, y, 0.5f, scale, scale, colour);
 }
@@ -706,6 +794,9 @@ static bool sceneInit(void)
 	// lands in touch coordinates, where x runs right and y runs down.
 	Mtx_PerspTilt(&projection, C3D_AngleFromDegrees(FIELD_OF_VIEW), C3D_AspectRatioBot, 0.01f, 1000.0f, false);
 	Mtx_Persp(&pickProjection, C3D_AngleFromDegrees(FIELD_OF_VIEW), C3D_AspectRatioBot, 0.01f, 1000.0f, false);
+	// The third is the level-select preview's, on the top screen's wider aspect.
+	// Nothing is ever picked out of it, so it needs no untilted twin.
+	Mtx_PerspTilt(&previewProjection, C3D_AngleFromDegrees(FIELD_OF_VIEW), C3D_AspectRatioTop, 0.01f, 1000.0f, false);
 
 	// Build the sprue and upload it
 	meshBuildKit(1);
@@ -755,9 +846,17 @@ static void sceneLoadKit(int level)
 	{
 		// The mesh accessors already describe the new kit, so there is no older
 		// buffer worth keeping - its draw ranges no longer match what they
-		// report. sceneRender skips the whole bench while either is NULL rather
-		// than draw from a buffer the ranges overrun.
+		// report. sceneRender and previewRenderKit both skip the whole bench
+		// while either is NULL, so nothing downstream ever draws through this.
+		//
+		// Printing alone used to be silent here: this fires mid-game, after the
+		// level select screen has already handed the top screen to citro2d, and
+		// the very next frame paints straight over whatever the console just
+		// wrote. showConsoleAndPause() is the same hold gameInit uses for SCENE
+		// INIT FAILED and the render target failures, so a load failure gets
+		// the same three readable seconds a boot failure gets, instead of none.
 		printf("VBO ALLOC FAILED L%d: %u+%u bytes\n", level, (unsigned)vboSize, (unsigned)idxSize);
+		showConsoleAndPause();
 		if (vbo_data) { linearFree(vbo_data); vbo_data = NULL; }
 		if (idx_data) { linearFree(idx_data); idx_data = NULL; }
 		return;
@@ -932,6 +1031,11 @@ static int  manualPage     = 0;   // step being shown, 0-based
 static bool manualHeld     = false;   // player has paged by hand, stop following
 static int  manualProgress = -1;  // cut+filed+built last seen, to spot progress
 
+// The one-step undo snapshot. Declared up here rather than beside undoPush and
+// undoPop below because loadLevelState has to clear it, and that runs first.
+static levelBuildState undoSlot;
+static bool undoValid = false;
+
 static void saveCurrentLevel(void)
 {
 	if (loadedLevel < 1 || loadedLevel > LEVEL_SAVE_COUNT) return;
@@ -979,6 +1083,81 @@ static void loadLevelState(int level)
 	// mismatch makes manualUpdate re-sync the page on the very next frame instead
 	// of leaving the new level's manual open at the old level's step.
 	manualProgress = -1;
+	// A snapshot describes one level's bench. Carrying it across a level change
+	// would let a tap on the new level's Undo button restore the old level's
+	// build wholesale - the same parts array, the same counts, over a kit that
+	// does not have those parts.
+	undoValid = false;
+}
+
+// One-step undo.
+//
+// Everything on this bench is reversible in principle and almost none of it was
+// in practice. A part taken off the frame cannot be put back on it. A part filed
+// smooth cannot be roughened. Fitting was the one action with a way out - tap a
+// fitted part twice and it comes off - and that only existed because a mis-aimed
+// fit used to be permanent for the session.
+//
+// So the mis-taps that actually cost something were the two the game could not
+// answer: snipping the wrong piece off the runner, and starting to file one.
+// Neither loses a build, but both are irreversible in a game about being careful
+// with small parts, which is the wrong feeling for a game about being careful
+// with small parts.
+//
+// The snapshot is the whole bench rather than a description of the action, and
+// that is deliberate. An action log has to know how to invert every action, and
+// every new action has to remember to teach it - the entry that gets forgotten
+// is the one that corrupts the build. Copying levelBuildState is the same copy
+// saveCurrentLevel already makes to put a level away, so it is already known to
+// describe a bench completely, and a field added to it is picked up here without
+// this code being touched. It costs one memcpy per action, on actions a player
+// takes a few times a minute.
+//
+// One slot, not a stack. Undo here is for the tap that just went wrong; a player
+// who wants to take a whole build apart already has the second-tap-unseats rule
+// and the Reset row in the pause menu.
+static void undoPush(void)
+{
+	undoSlot.visited = true;
+	memcpy(undoSlot.parts, partStates, sizeof(partStates));
+	undoSlot.cutCount = cutCount; undoSlot.filedCount = filedCount; undoSlot.builtCount = builtCount;
+	undoSlot.runnerLift = runnerLift; undoSlot.boxOpen = boxOpen; undoSlot.boxOpening = boxOpening;
+	undoSlot.manualPage = manualPage;
+	undoSlot.currentRunner = currentRunner;
+	undoValid = true;
+}
+
+// Puts the bench back and reports whether there was anything to put back.
+static bool undoPop(void)
+{
+	if (!undoValid) return false;
+
+	memcpy(partStates, undoSlot.parts, sizeof(partStates));
+	cutCount = undoSlot.cutCount; filedCount = undoSlot.filedCount; builtCount = undoSlot.builtCount;
+	runnerLift = undoSlot.runnerLift; boxOpen = undoSlot.boxOpen; boxOpening = undoSlot.boxOpening;
+	manualPage = undoSlot.manualPage;
+	currentRunner = undoSlot.currentRunner;
+
+	// Nothing is in hand afterwards. The part that was in hand may be the one
+	// that has just gone back onto the frame, and a selection pointing at a part
+	// that is no longer cut is exactly the state seatPart's refusals exist to
+	// keep out of the game.
+	selectedPart = -1;
+
+	// Posing is only ever on over a finished kit, and an undo can take the last
+	// part back off one. Left on, the next tap would fall into the posing branch
+	// of handleTap, find nothing seated where the player aimed, and read as a
+	// dead bench.
+	poseMode = false;
+
+	// Forcing a mismatch makes manualUpdate re-sync on the next frame, the same
+	// way loadLevelState does it, rather than leaving the manual open at the step
+	// the undone action had moved it to.
+	manualProgress = -1;
+
+	// One step. Tapping again must not put back what the undo just took away.
+	undoValid = false;
+	return true;
 }
 
 // Progress across sessions
@@ -1159,6 +1338,45 @@ static bool progressSave(void)
 	return saveWriteBlob(levelBuilds, sizeof(levelBuilds), progressLayoutId());
 }
 
+// Item 9: the card is written every two minutes while a level is open.
+//
+// Before this the only writes were on the way out of a level and on the way out
+// of the game, so a console that ran flat, crashed, or was closed by the HOME
+// menu's own power-off lost everything since the level was opened - which on a
+// twenty-part kit is the whole sitting. Two minutes is the interval he asked
+// for.
+//
+// The clock is a deadline rather than an elapsed count so that any write - the
+// pause menu's Save row included - pushes the next automatic one a full two
+// minutes out. Saving twice within a second of each other buys nothing and each
+// write is a card transaction the player can feel.
+#define AUTOSAVE_INTERVAL_MS 120000ull
+
+static u64  autosaveDueAt = 0;
+static char autosaveNote[48] = "";
+
+static void autosaveArm(void)
+{
+	autosaveDueAt = osGetTime() + AUTOSAVE_INTERVAL_MS;
+}
+
+// Called once a frame while a level is open. Does nothing until the deadline.
+static void autosaveTick(u64 now)
+{
+	if (now < autosaveDueAt) return;
+	autosaveArm();
+
+	saveCurrentLevel();
+	if (progressSave())
+		autosaveNote[0] = '\0';
+	else
+		// Not silent. A card that has stopped taking writes means every automatic
+		// save from here on is doing nothing, and the player has no other way to
+		// find that out until they lose the sitting - so it is latched and shown
+		// on the pause menu until a save succeeds.
+		snprintf(autosaveNote, sizeof(autosaveNote), "AUTOSAVE FAILED - %s", saveLastReason());
+}
+
 // A kit is built when every one of its parts has been fitted.
 //
 // The count is taken from the kit tables rather than from MESH_MAX_PARTS, which
@@ -1219,6 +1437,112 @@ static void manualUpdate(void)
 	if (manualPage >= steps) manualPage = steps - 1;
 }
 
+// The progress tag, in the top-left corner of the bench.
+//
+// Everything the game said about how far along a build was, it said on the top
+// screen: the manual page, the tutorial sheet, the part counts. The player's
+// eyes are on the bottom screen, because that is where the stylus is. So the one
+// question that comes up over and over - how much of this is left - could only
+// be answered by looking away from the thing being worked on.
+//
+// Two lines, because they answer two different questions. The step line is
+// position: which page of the manual is open, out of how many. The counts line
+// is amount: how much snipping, filing and fitting is done, each against its own
+// total. A single percentage would have merged them and told the player neither.
+//
+// Top-left rather than anywhere else. The kit box opens centre-left, the runner
+// lies across the middle, the stand sits centre-right and the hint dot lands on
+// whichever of those is next - the corner above the mat is the one part of this
+// screen nothing else ever claims.
+#define BENCH_HUD_X   6.0f
+#define BENCH_HUD_Y   6.0f
+#define BENCH_HUD_W 196.0f
+#define BENCH_HUD_H  36.0f
+
+static void drawBenchHud(void)
+{
+	const int parts = meshPartCount();
+	const int steps = meshSocketCount();
+	if (parts <= 0 || steps <= 0) return;
+
+	// The same paper-and-blue-rule the pause menu and the tutorial sheet use, so
+	// the tag reads as another page off the same instruction booklet rather than
+	// as a game overlay stuck on top of the desk.
+	C2D_DrawRectSolid(BENCH_HUD_X, BENCH_HUD_Y, 0.0f, BENCH_HUD_W, BENCH_HUD_H, PAPER_WHITE);
+	C2D_DrawRectSolid(BENCH_HUD_X, BENCH_HUD_Y, 0.0f, BENCH_HUD_W, 3.0f, PAPER_BLUE);
+
+	char line[64];
+
+	// manualPageIndex is the page the manual is actually showing, not
+	// manualNextStep - if the player has paged back to look at something they
+	// already fitted, the tag follows them there rather than insisting on where
+	// the build has got to. The counts line still says that.
+	snprintf(line, sizeof(line), STR(STR_C_BENCH_STEP), manualPageIndex() + 1, steps);
+	benchLabel(line, BENCH_HUD_X + 7.0f, BENCH_HUD_Y + 5.0f, 0.42f, PAPER_INK);
+
+	// Snipping and filing are per part; fitting is per socket. They are the same
+	// number on every kit shipped so far, but they are not the same question, and
+	// pairing each count with its own total means a kit that ever seats a part in
+	// two places will read correctly without this line being revisited.
+	snprintf(line, sizeof(line), STR(STR_C_BENCH_COUNTS),
+		cutCount, parts, filedCount, parts, builtCount, steps);
+	// 0.36 and not smaller. The first pass set this at 0.28 to be sure the
+	// longest form of the line - every count in double digits - could not run off
+	// the tag, and it measured out at 62% of the panel width with the whole kit
+	// built, so there was more than a third of the strip going spare and the
+	// digits were mush. 0.36 uses about 80% of it and is the same size as the
+	// pause menu's own value text, which is the smallest type in the game anybody
+	// has had to read at arm's length.
+	benchLabel(line, BENCH_HUD_X + 7.0f, BENCH_HUD_Y + 20.0f, 0.36f, PAPER_BLUE);
+}
+
+// The Undo button, mirrored across the bench from the progress tag.
+//
+// It is a stylus button and not a face button because there are none left. The
+// game binds twelve actions to buttons and controls.h says in as many words that
+// a thirteenth row does not fit on either screen that prints the list - the
+// console page ends at row 17 and a thirteenth would overwrite the live readout
+// under it, and controls.c static-asserts the two counts agree, so adding one is
+// a build failure rather than a silent omission. Undo is also a stylus action in
+// spirit: everything it reverses was done with the stylus, on this screen.
+//
+// Always drawn once the box is open, greyed when there is nothing to undo,
+// rather than appearing and disappearing. A control that is only there sometimes
+// is a control the player never learns is there.
+#define BENCH_UNDO_X 250.0f
+#define BENCH_UNDO_Y   6.0f
+#define BENCH_UNDO_W  64.0f
+#define BENCH_UNDO_H  30.0f
+
+static void drawUndoButton(void)
+{
+	const u32 ink = undoValid ? PAPER_BLUE : PAPER_LINE;
+
+	C2D_DrawRectSolid(BENCH_UNDO_X, BENCH_UNDO_Y, 0.0f, BENCH_UNDO_W, BENCH_UNDO_H, PAPER_WHITE);
+	C2D_DrawRectSolid(BENCH_UNDO_X, BENCH_UNDO_Y, 0.0f, BENCH_UNDO_W, 3.0f, ink);
+
+	// Centred by measurement rather than by a hardcoded inset: the French label
+	// is ANNULER against the English UNDO, and an inset that centres one leaves
+	// the other hanging off the edge.
+	C2D_Text text;
+	C2D_TextParse(&text, benchText, STR(STR_C_UNDO_LABEL));
+	C2D_TextOptimize(&text);
+	float w, h;
+	C2D_TextGetDimensions(&text, 0.4f, 0.4f, &w, &h);
+	C2D_DrawText(&text, C2D_WithColor,
+		BENCH_UNDO_X + (BENCH_UNDO_W - w) * 0.5f,
+		BENCH_UNDO_Y + 3.0f + (BENCH_UNDO_H - 3.0f - h) * 0.5f,
+		0.5f, 0.4f, 0.4f, ink);
+}
+
+// Did that tap land on the Undo button? Screen coordinates, the same ones
+// handleTap works in.
+static bool pickUndoButton(int x, int y)
+{
+	return (float)x >= BENCH_UNDO_X && (float)x < BENCH_UNDO_X + BENCH_UNDO_W
+	    && (float)y >= BENCH_UNDO_Y && (float)y < BENCH_UNDO_Y + BENCH_UNDO_H;
+}
+
 // pickSocket and pickGhostSocket moved to picking.c with the rest of the
 // picking code; picking.h declares them for the tap-resolution code below.
 
@@ -1257,6 +1581,11 @@ static void describeSelection(void)
 // always lands in the same place and no two parts ever share a spot.
 static void cutPart(int index, u64 now)
 {
+	// Before anything moves. cutPart cannot refuse - every caller has already
+	// hit-tested a gate - so there is no path from here that leaves the bench
+	// unchanged and the snapshot spent.
+	undoPush();
+
 	const meshPart* p = &meshParts()[index];
 	partState* st = &partStates[index];
 	float home[2];
@@ -1361,6 +1690,18 @@ static void fileStroke(int index, float travelPx)
 	if (index < 0 || index >= meshPartCount()) return;
 
 	partState* st = &partStates[index];
+
+	// Filing is the one action that arrives in pieces - one call per stylus
+	// delta, dozens of them for a single nub - so the useful unit to undo is not
+	// a stroke, it is "the filing of this part". The snapshot is taken on the
+	// first stroke that touches a part still rough, which puts the part back the
+	// way it came off the frame however far into the nub the player has got.
+	//
+	// Snapshotting per stroke instead would technically work and would be
+	// useless: undo would give back a few pixels of nub and eat the slot that
+	// held the snip the player actually wanted back.
+	if (st->filed <= 0.0f) undoPush();
+
 	filingAnimUntil = osGetTime() + 90;
 
 	st->filed += travelPx / FILE_TRAVEL_PX;
@@ -1422,6 +1763,13 @@ static bool seatPart(int socketIndex, u64 now)
 
 	const meshPart* p = &meshParts()[selectedPart];
 	partState* st = &partStates[selectedPart];
+
+	// Past every refusal, so this is the first line that is certain the fit is
+	// going to happen. Snapshotting at the top of the function instead would
+	// spend the slot on a tap that was turned away - the player would aim at the
+	// wrong socket, be told so, and silently lose the undo for the snip before
+	// it.
+	undoPush();
 
 	// The travel starts from wherever the part is sitting now, nub settle and
 	// all, so it glides across instead of jumping back to the mat first. The
@@ -1486,6 +1834,10 @@ static bool unseatPart(int index, u64 now)
 	const meshPart* p = &meshParts()[index];
 	float home[2];
 	meshLooseSlot(index, home);
+
+	// Same rule as seatPart: after the child-still-attached refusal, so a
+	// pull that was turned away does not spend the slot.
+	undoPush();
 
 	// The same landing spot a fresh cut is sent to, worked out the same way, so a
 	// part that has been on and off the model ends up exactly where it would have
@@ -1772,9 +2124,21 @@ static void runCameraPanAudit(void) { }
 #if TEST_LEVEL1_WORKSPACE_AUDIT
 static bool inBenchWorkspace(const float p[3])
 {
-	// Desk top: x=-.06..7.34, z=1.54..6.34.  A small apron allows the raised
-	// stand/model while still rejecting the room origin or any wall position.
-	return p[0] >= -0.20f && p[0] <= 7.50f &&
+	// Desk top: x=-5.24..7.34, z=1.54..6.34 - BENCH_X 1.05 give or take half of
+	// BENCH_W 12.58, and BENCH_Z 3.94 give or take half of BENCH_D 4.80. A small
+	// apron on every side allows the raised stand/model.
+	//
+	// The left edge was -0.06 here until 2026-08-19, describing the desk as it
+	// was before it was widened. Cut parts have landed on the bare wood at the
+	// far left ever since - LOOSE_X is -3.675 in mesh.c, deliberately - so this
+	// reported all ten of level 1's parts out of bounds on every run. Nobody saw
+	// it because nobody was running the audit; tools/regress.py found it the
+	// first time the whole set was run in one command.
+	//
+	// x alone no longer rejects the room origin now that it reaches past zero.
+	// z still does: the desk starts at 1.54 and the origin is at 0, so a part
+	// stranded at the world origin or against a wall still fails this.
+	return p[0] >= -5.40f && p[0] <= 7.50f &&
 	       p[1] >= -2.20f && p[1] <= 3.20f &&
 	       p[2] >=  1.35f && p[2] <= 6.50f;
 }
@@ -2321,12 +2685,10 @@ static void sceneRender(const C3D_Mtx* modelView)
 
 	// Uniforms that are the same for every draw
 	C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, uLoc_projection, &projection);
-	// The shader wants the direction the light TRAVELS, in view space, and gives
-	// a surface max(0, -dot(lightVec, normal)). Straight down the camera axis
-	// would leave every upward-facing surface - the desk, the mat - unlit, so the
-	// lamp is set up and to the left of the viewer, the way a desk lamp sits.
-	C3D_FVUnifSet(GPU_VERTEX_SHADER, uLoc_lightVec,     -0.20f, -0.55f, -0.81f, 0.0f);
-	C3D_FVUnifSet(GPU_VERTEX_SHADER, uLoc_lightHalfVec, -0.20f, -0.55f, -0.81f, 0.0f);
+	// See LIGHT_VEC_* / LIGHT_HALF_* above for what these two are and why the
+	// half-vector is not simply a copy of the light one.
+	C3D_FVUnifSet(GPU_VERTEX_SHADER, uLoc_lightVec,     LIGHT_VEC_X,  LIGHT_VEC_Y,  LIGHT_VEC_Z,  0.0f);
+	C3D_FVUnifSet(GPU_VERTEX_SHADER, uLoc_lightHalfVec, LIGHT_HALF_X, LIGHT_HALF_Y, LIGHT_HALF_Z, 0.0f);
 	C3D_FVUnifSet(GPU_VERTEX_SHADER, uLoc_lightClr,     1.0f, 1.0f,  1.0f, 1.0f);
 	// Every draw in the scene is rigid, so the shader's normal correction stays at
 	// identity for the whole frame. It is still set explicitly rather than left to
@@ -2589,6 +2951,202 @@ static void sceneRender(const C3D_Mtx* modelView)
 			drawRange(p->firstVertex + nubVerts, p->vertexCount - nubVerts);
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// The level select's preview - the kit the highlighted tile holds
+//
+// It draws on the TOP screen while the front end still owns the bottom one, and
+// it deliberately does NOT go through sceneRender. That function draws the whole
+// bedroom - desk, mat, shoebox, runner - and it reads a dozen globals that only
+// describe a level in progress: boxOpen, runnerLift, currentRunner, hoverPart,
+// selectedPart, and partStates itself. None of them mean anything on the front
+// end.
+//
+// Posing the kit through partStates would be worse than untidy. partStates IS
+// the player's save in memory: saveCurrentLevel() copies it straight into
+// levelBuilds[] and progressSave() writes that to the card. A preview that
+// marked every part cut and filed so it could stand the model up would be one
+// Quit away from writing "finished" over a kit nobody has touched. So it reads
+// the mesh tables and nothing else, and writes nothing at all.
+// ---------------------------------------------------------------------------
+
+// An unbuilt kit is shown as a flat dark shape rather than in its real colours -
+// all ambient, no diffuse and no specular, so the shading that would give the
+// form away is gone and only the outline is left. It is a spoiler-free "there is
+// something here", which is what an empty grid square cannot say.
+static C3D_Mtx materialSilhouette =
+{
+	{ { { 0.0f, 0.31f, 0.30f, 0.29f } }, { { 0.0f, 0.00f, 0.00f, 0.00f } },
+	  { { 0.0f, 0.00f, 0.00f, 0.00f } }, { { 1.0f, 0.00f, 0.00f, 0.00f } } }
+};
+
+// Which kit the shared vertex buffer is holding on the preview's behalf, or 0
+// when it belongs to a level instead. sceneLoadKit is the expensive half of this
+// - it rebuilds the mesh and re-uploads both buffers - so it runs when the pick
+// changes and not once a frame. enterLevel clears it, because after that the
+// buffer holds the level's kit and the preview's idea of what is loaded is
+// stale.
+static int   previewLoadedKit = 0;
+static float previewYaw       = 0.0f;
+
+// A full turn in twelve seconds at 60fps. Slow enough to read the shape by,
+// fast enough that it is obviously turning rather than drifting.
+#define PREVIEW_YAW_STEP (C3D_Angle(1.0f) / 720.0f)
+
+// Draws the currently built kit standing assembled, turning on the spot.
+static void previewRenderKit(bool built)
+{
+	if (!vbo_data || !idx_data) return;
+
+	const meshSocket* socks = meshSockets();
+	const int nSock = meshSocketCount();
+	if (nSock <= 0) return;
+
+	// Frame it off the sockets. A socket's min/max is the box its part occupies
+	// once it is fitted, so the union of all of them is the assembled model's
+	// bounding box exactly - measured without having to pose anything first.
+	float lo[3], hi[3];
+	for (int a = 0; a < 3; a++) { lo[a] = socks[0].min[a]; hi[a] = socks[0].max[a]; }
+	for (int i = 1; i < nSock; i++)
+		for (int a = 0; a < 3; a++)
+		{
+			if (socks[i].min[a] < lo[a]) lo[a] = socks[i].min[a];
+			if (socks[i].max[a] > hi[a]) hi[a] = socks[i].max[a];
+		}
+
+	float centre[3], half[3];
+	for (int a = 0; a < 3; a++)
+	{
+		centre[a] = (lo[a] + hi[a]) * 0.5f;
+		half[a]   = (hi[a] - lo[a]) * 0.5f;
+	}
+	// Height and width are fitted separately, and the model is put at whichever
+	// distance satisfies the harder of the two. Fitting a single radius instead
+	// pushes every kit back by the distance its LONGEST axis needs in the
+	// direction that axis does not point - a tall thin trophy ends up framed as
+	// though it were as wide as it is tall, and sits tiny in a screen that is
+	// mostly empty on both sides.
+	//
+	// Width is the X/Z footprint's half-diagonal rather than its front-on width,
+	// because the model turns: that is the widest it can ever look, so a deep
+	// kit does not swing out through the side of the frame a quarter turn later.
+	const float halfWide = sqrtf(half[0] * half[0] + half[2] * half[2]);
+	// tan(fov/2) is the half-height the view covers one unit out; the frustum is
+	// that much wider again by the screen's aspect, which is why the same extent
+	// is easier to fit across than up.
+	const float t = tanf(C3D_AngleFromDegrees(FIELD_OF_VIEW) * 0.5f);
+	const float distV = half[1] / t;
+	const float distH = halfWide / (t * C3D_AspectRatioTop);
+	// The margin is what keeps the kit clear of the name above it and the two
+	// counts below, which are drawn over the same 400x240 and not around it.
+	float dist = (distV > distH ? distV : distH) * 1.50f;
+	if (dist < 0.5f) dist = 0.5f;
+
+	C3D_Mtx view;
+	Mtx_Identity(&view);
+	Mtx_Translate(&view, 0.0f, 0.0f, -dist, true);
+	// Looking slightly down on it, the way a model on a shelf is seen from a
+	// chair rather than from its own eye level.
+	Mtx_RotateX(&view, C3D_AngleFromDegrees(-12.0f), true);
+	Mtx_RotateY(&view, previewYaw, true);
+	Mtx_Translate(&view, -centre[0], -centre[1], -centre[2], true);
+
+	C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, uLoc_projection, &previewProjection);
+	// The same desk lamp the bench is lit by, so a kit does not change colour
+	// between the shelf and the level it was built in.
+	C3D_FVUnifSet(GPU_VERTEX_SHADER, uLoc_lightVec,     LIGHT_VEC_X,  LIGHT_VEC_Y,  LIGHT_VEC_Z,  0.0f);
+	C3D_FVUnifSet(GPU_VERTEX_SHADER, uLoc_lightHalfVec, LIGHT_HALF_X, LIGHT_HALF_Y, LIGHT_HALF_Z, 0.0f);
+	C3D_FVUnifSet(GPU_VERTEX_SHADER, uLoc_lightClr,     1.0f, 1.0f, 1.0f, 1.0f);
+	setNormalScale(1.0f, 1.0f, 1.0f);
+
+	const meshPart* parts = meshParts();
+	for (int i = 0; i < nSock; i++)
+	{
+		const meshPart* mp = &parts[socks[i].part];
+		C3D_Mtx mv = view;
+		// The same offset assembly uses: pos is where the body's centre lands,
+		// so the part is moved by the difference between the two.
+		Mtx_Translate(&mv, socks[i].pos[0] - mp->bodyCentre[0],
+		                   socks[i].pos[1] - mp->bodyCentre[1],
+		                   socks[i].pos[2] - mp->bodyCentre[2], true);
+		C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, uLoc_modelView, &mv);
+		C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, uLoc_material,
+			built ? partMaterialFor(mp->colour) : &materialSilhouette);
+		// Body only, never the nub: a part that has been fitted had its nub
+		// filed off to get there, so a shelf model wearing its gate stubs would
+		// be advertising a kit nobody finished.
+		const int nub = mp->nubVertexCount;
+		drawRange(mp->firstVertex + nub, mp->vertexCount - nub);
+	}
+}
+
+// One frame of the preview: the model, then the caption over it. Owns the top
+// screen for the whole frame, so it clears it itself.
+static void previewDraw(void)
+{
+	const int kit = titlePreviewLevel();
+
+	if (kit > 0 && kit != previewLoadedKit)
+	{
+		sceneLoadKit(kit);
+		previewLoadedKit = kit;
+		// Start each kit at the same angle rather than wherever the last one had
+		// got to, so two kits looked at one after the other are comparable.
+		previewYaw = 0.0f;
+	}
+
+	C3D_RenderTargetClear(beginnerTarget, C3D_CLEAR_ALL, 0xFBFAF6FF, 0);
+	C3D_FrameDrawOn(beginnerTarget);
+
+	const bool built = kit > 0 && levelIsBuilt(kit);
+	if (kit > 0)
+	{
+		// sceneBind before the 3D and C2D_Prepare after it, for the same reason
+		// the bench does it: the two renderers each leave the GPU set up for
+		// themselves, and citro2d's depth function is not the one this scene
+		// expects.
+		sceneBind();
+		previewRenderKit(built);
+		previewYaw += PREVIEW_YAW_STEP;
+		if (previewYaw >= C3D_Angle(1.0f)) previewYaw -= C3D_Angle(1.0f);
+	}
+
+	C2D_Prepare();
+	C2D_SceneBegin(beginnerTarget);
+	C2D_TextBufClear(beginnerText);
+
+	// kit is never 0 while this runs - titlePreviewLevel only returns 0 off the
+	// level select, and the caller checks the page first - so there is no "tap
+	// something" state to draw. The guard is kept anyway because the cost is a
+	// branch and the alternative is drawing a caption for a kit that is not
+	// loaded.
+	char line[64];
+	if (kit > 0)
+	{
+		// The kit's own name, from the kit that is actually loaded rather than
+		// from a table indexed by the number - if those two ever disagree it is
+		// the loaded one the player is looking at.
+		snprintf(line, sizeof(line), "%d. %s", kit, meshKitName());
+		beginnerLabel(line, 12.0f, 10.0f, 0.62f, PAPER_INK);
+
+		snprintf(line, sizeof(line), STR(STR_PRE_PARTS), meshPartCount());
+		beginnerLabel(line, 12.0f, 214.0f, 0.46f, PAPER_LINE);
+		// Most kits are on a single runner, so the plural form is the one that
+		// would be wrong most of the time. Two strings rather than a suffixed
+		// "(s)": French pluralises the noun differently and the tables are the
+		// place that difference belongs.
+		const int runners = meshKitRunnersFor(kit);
+		if (runners == 1)
+			snprintf(line, sizeof(line), "%s", STR(STR_PRE_RUNNER_1));
+		else
+			snprintf(line, sizeof(line), STR(STR_PRE_RUNNERS), runners);
+		beginnerLabel(line, 130.0f, 214.0f, 0.46f, PAPER_LINE);
+
+		if (!built)
+			beginnerLabel(STR(STR_PRE_LOCKED), 12.0f, 34.0f, 0.54f, PAPER_AMBER);
+	}
+	C2D_Flush();
 }
 
 static void sceneExit(void)
@@ -2896,12 +3454,23 @@ static void enterLevel(int level, bool isNew3DS)
 {
 	titleCaptureStartLevel(level);
 	sceneLoadKit(level);
+	// The shared buffer now holds this level's kit, so whatever the shelf last
+	// put in it is gone. Without this, coming back out to the level select on the
+	// same tile would skip the reload and draw this level's geometry under that
+	// kit's name.
+	previewLoadedKit = 0;
 	loadLevelState(level);
 	frameWorkbenchCamera();
 	printStaticInfo(isNew3DS);
 
 	benchSettle = BENCH_SETTLE_FRAMES;
 	benchSeenUp = false;
+
+	// Start the two-minute clock from the moment the bench appears. Without this
+	// the deadline is still zero and the first frame of the first level would
+	// write the card immediately.
+	autosaveArm();
+	autosaveNote[0] = '\0';
 }
 
 // True once the settle window has run out AND the glass has been seen clear on
@@ -3137,8 +3706,16 @@ static bool loadArmed = false;
 static void menuSaveNow(void)
 {
 	saveCurrentLevel();
-	if (progressSave()) snprintf(menuNote, sizeof(menuNote), "SAVED - %s", meshKitName());
-	else                snprintf(menuNote, sizeof(menuNote), "SAVE FAILED - THE CARD REFUSED IT");
+	if (progressSave())
+	{
+		snprintf(menuNote, sizeof(menuNote), "SAVED - %s", meshKitName());
+		autosaveNote[0] = '\0';
+	}
+	else snprintf(menuNote, sizeof(menuNote), "SAVE FAILED - THE CARD REFUSED IT");
+
+	// This was a write, so the next automatic one is two minutes from here, not
+	// two minutes from whenever the last one happened to land.
+	autosaveArm();
 	loadArmed = false;
 }
 
@@ -3176,6 +3753,268 @@ static void menuLoadNow(void)
 	benchSettle = BENCH_SETTLE_FRAMES;
 	snprintf(menuNote, sizeof(menuNote), "LOADED - %s", meshKitName());
 }
+
+#if TEST_UNDO_AUDIT
+// Does one-step undo actually undo, on every kit in the game, and does it stay
+// out of the way everywhere it is not needed?
+//
+// The four snapshot points - cutPart, fileStroke (first stroke only), seatPart
+// and unseatPart (both after every refusal) - only get exercised by hand at the
+// stylus, one level at a time, one mis-tap at a time. This drives all four
+// through the real gameplay functions on every kit, and checks three things a
+// hand test cannot reach reliably: a second undo right after the first has to
+// refuse rather than reach further back, an action the bench turned away must
+// not have spent the slot the earlier action armed, and walking out of the
+// level has to clear the slot so a tap on the next kit's Undo button can never
+// reach across levels.
+//
+// Console output only, same as the audit this sits beside - undo never touches
+// the card, so there is nothing here to stash and restore the way the save/load
+// and paint audits have to.
+static void runUndoAudit(void)
+{
+	bool ok = true;
+	u64 now = osGetTime();
+
+	// One character per level, so twenty results fit on one console line. P is
+	// a clean pass; anything else names the first of the seven cases below that
+	// failed - c cut, 2 second undo, f file, s seat, u unseat, r refused action,
+	// l leaving the level.
+	char marks[LEVEL_SAVE_COUNT + 1];
+	// Static rather than automatic: a kit's worth of partState is thousands of
+	// bytes and this runs on the main thread's stack, the same reason
+	// runSaveLoadAudit's expect[] is static.
+	static partState before[MESH_MAX_PARTS];
+	int beforeCut, beforeFiled, beforeBuilt, beforeRunner;
+
+	for (int level = 1; level <= LEVEL_SAVE_COUNT; level++)
+	{
+		char mark = 'P';
+
+		// A clean, freshly loaded bench - same setup runSaveLoadAudit and
+		// runLevel1WorkspaceAudit use, so what gets undone is state the real
+		// gameplay functions produced, not a hand-filled struct.
+		sceneLoadKit(level);
+		loadLevelState(level);
+		memset(partStates, 0, sizeof(partStates));
+		cutCount = filedCount = builtCount = 0;
+		boxOpen = 1.0f; boxOpening = false; runnerLift = 0.0f; selectedPart = -1;
+		undoValid = false;
+
+		// Case 1: cut -> undo. A check that could not fail proves nothing, so
+		// this asserts the snip actually landed before asking undo to give it
+		// back.
+		if (meshPartCount() > 0)
+		{
+			memcpy(before, partStates, sizeof(before));
+			beforeCut = cutCount; beforeFiled = filedCount;
+			beforeBuilt = builtCount; beforeRunner = currentRunner;
+
+			cutPart(0, now);
+			bool armed = cutCount > beforeCut;
+			bool popped = undoPop();
+			bool matches = armed && popped &&
+				memcmp(partStates, before, sizeof(before)) == 0 &&
+				cutCount == beforeCut && filedCount == beforeFiled &&
+				builtCount == beforeBuilt && currentRunner == beforeRunner;
+			if (!matches)
+			{
+				mark = 'c';
+				printf("UN L%02d case c (cut->undo): armed=%d popped=%d cut %d->%d\n",
+					level, armed, popped, beforeCut, cutCount);
+			}
+		}
+		else printf("UN L%02d case c skipped: kit has no parts\n", level);
+
+		// Case 2: a second undo, right on the heels of the first, has to find
+		// the slot already spent rather than reaching back past the snip.
+		{
+			memcpy(before, partStates, sizeof(before));
+			beforeCut = cutCount; beforeFiled = filedCount;
+			beforeBuilt = builtCount; beforeRunner = currentRunner;
+
+			bool popped = undoPop();
+			bool matches = !popped &&
+				memcmp(partStates, before, sizeof(before)) == 0 &&
+				cutCount == beforeCut && filedCount == beforeFiled &&
+				builtCount == beforeBuilt && currentRunner == beforeRunner;
+			if (!matches)
+			{
+				if (mark == 'P') mark = '2';
+				printf("UN L%02d case 2 (second undo): undoPop() returned %d\n", level, popped);
+			}
+		}
+
+		// Case 3: file -> undo. fileStroke only arms the slot on the stroke
+		// that finds the part still rough, so the part is cut fresh here
+		// rather than reused from case 1, which already gave its snip back.
+		if (meshPartCount() > 0)
+		{
+			cutPart(0, now);
+			updateCuts(now + CUT_ANIM_MS + 1);
+
+			memcpy(before, partStates, sizeof(before));
+			beforeCut = cutCount; beforeFiled = filedCount;
+			beforeBuilt = builtCount; beforeRunner = currentRunner;
+
+			fileStroke(0, FILE_TRAVEL_PX);
+			bool armed = filedCount > beforeFiled && partStates[0].smooth;
+			bool popped = undoPop();
+			bool matches = armed && popped &&
+				memcmp(partStates, before, sizeof(before)) == 0 &&
+				cutCount == beforeCut && filedCount == beforeFiled &&
+				builtCount == beforeBuilt && currentRunner == beforeRunner;
+			if (!matches)
+			{
+				if (mark == 'P') mark = 'f';
+				printf("UN L%02d case f (file->undo): armed=%d popped=%d filed %d->%d\n",
+					level, armed, popped, beforeFiled, filedCount);
+			}
+		}
+		else printf("UN L%02d case f skipped: kit has no parts\n", level);
+
+		// Case 4: seat -> undo. Cuts the whole runner and fully files the
+		// first socket's part first, so the fit is not refused by anything
+		// upstream of the snapshot seatPart takes past its own refusals.
+		if (meshPartCount() > 0 && meshSocketCount() > 0)
+		{
+			const meshSocket* s = &meshSockets()[0];
+			for (int i = 0; i < meshPartCount(); i++)
+			{
+				cutPart(i, now);
+				updateCuts(now + CUT_ANIM_MS + 1);
+			}
+			fileStroke(s->part, FILE_TRAVEL_PX);
+			selectedPart = s->part;
+			updateCuts(now + CUT_ANIM_MS + 1);
+
+			memcpy(before, partStates, sizeof(before));
+			beforeCut = cutCount; beforeFiled = filedCount;
+			beforeBuilt = builtCount; beforeRunner = currentRunner;
+
+			bool seated = seatPart(0, now);
+			bool armed = builtCount > beforeBuilt;
+			bool popped = undoPop();
+			// undoPop deliberately sets selectedPart = -1, so it plays no part
+			// in this comparison - only partStates and the four counters do.
+			bool matches = seated && armed && popped &&
+				memcmp(partStates, before, sizeof(before)) == 0 &&
+				cutCount == beforeCut && filedCount == beforeFiled &&
+				builtCount == beforeBuilt && currentRunner == beforeRunner;
+			if (!matches)
+			{
+				if (mark == 'P') mark = 's';
+				printf("UN L%02d case s (seat->undo): seated=%d armed=%d popped=%d built %d->%d\n",
+					level, seated, armed, popped, beforeBuilt, builtCount);
+			}
+		}
+		else printf("UN L%02d case s skipped: kit has no parts or sockets\n", level);
+
+		// Case 5: unseat -> undo. Continues from case 4's part - case 4's own
+		// undo just took it back off, so it goes back on here before the
+		// unseat this case is actually testing.
+		if (meshPartCount() > 0 && meshSocketCount() > 0)
+		{
+			const meshSocket* s = &meshSockets()[0];
+			if (!partStates[s->part].seated)
+			{
+				selectedPart = s->part;
+				seatPart(0, now);
+			}
+			updateCuts(now + CUT_ANIM_MS + 1);
+
+			memcpy(before, partStates, sizeof(before));
+			beforeCut = cutCount; beforeFiled = filedCount;
+			beforeBuilt = builtCount; beforeRunner = currentRunner;
+
+			bool unseated = unseatPart(s->part, now);
+			bool armed = builtCount < beforeBuilt;
+			bool popped = undoPop();
+			bool matches = unseated && armed && popped &&
+				memcmp(partStates, before, sizeof(before)) == 0 &&
+				cutCount == beforeCut && filedCount == beforeFiled &&
+				builtCount == beforeBuilt && currentRunner == beforeRunner;
+			if (!matches)
+			{
+				if (mark == 'P') mark = 'u';
+				printf("UN L%02d case u (unseat->undo): unseated=%d armed=%d popped=%d built %d->%d\n",
+					level, unseated, armed, popped, beforeBuilt, builtCount);
+			}
+		}
+		else printf("UN L%02d case u skipped: kit has no parts or sockets\n", level);
+
+		// Case 6: the case the seatPart comment exists for. A refused seat -
+		// nothing selected, so it falls into the wrong-part branch before
+		// undoPush - must not overwrite the slot the snip before it armed. On
+		// a clean bench, since cases 1-5 have left this one mid-build.
+		sceneLoadKit(level);
+		loadLevelState(level);
+		memset(partStates, 0, sizeof(partStates));
+		cutCount = filedCount = builtCount = 0;
+		boxOpen = 1.0f; boxOpening = false; runnerLift = 0.0f; selectedPart = -1;
+		undoValid = false;
+		if (meshPartCount() > 0 && meshSocketCount() > 0)
+		{
+			memcpy(before, partStates, sizeof(before));
+			beforeCut = cutCount; beforeFiled = filedCount;
+			beforeBuilt = builtCount; beforeRunner = currentRunner;
+
+			cutPart(0, now);
+			selectedPart = -1;
+			bool refused = !seatPart(0, now);
+			bool popped = undoPop();
+			bool matches = refused && popped &&
+				memcmp(partStates, before, sizeof(before)) == 0 &&
+				cutCount == beforeCut && filedCount == beforeFiled &&
+				builtCount == beforeBuilt && currentRunner == beforeRunner;
+			if (!matches)
+			{
+				if (mark == 'P') mark = 'r';
+				printf("UN L%02d case r (refused doesn't spend): refused=%d popped=%d\n",
+					level, refused, popped);
+			}
+		}
+		else printf("UN L%02d case r skipped: kit has no parts or sockets\n", level);
+
+		// Case 7: leaving the level clears the slot. loadLevelState sets
+		// undoValid = false itself; this proves it on every kit rather than by
+		// reading the source. On a clean bench, for the same reason as case 6.
+		sceneLoadKit(level);
+		loadLevelState(level);
+		memset(partStates, 0, sizeof(partStates));
+		cutCount = filedCount = builtCount = 0;
+		boxOpen = 1.0f; boxOpening = false; runnerLift = 0.0f; selectedPart = -1;
+		undoValid = false;
+		if (meshPartCount() > 0)
+		{
+			cutPart(0, now);
+			loadLevelState(level == 1 ? 2 : 1);
+			bool popped = undoPop();
+			if (popped)
+			{
+				if (mark == 'P') mark = 'l';
+				printf("UN L%02d case l (leave clears slot): undoPop() returned true\n", level);
+			}
+		}
+		else printf("UN L%02d case l skipped: kit has no parts\n", level);
+
+		marks[level - 1] = mark;
+		if (mark != 'P') ok = false;
+	}
+	marks[LEVEL_SAVE_COUNT] = '\0';
+	printf("UN %s\n", marks);
+
+	// Leave the bench in the same tidy state runSaveLoadAudit leaves it in.
+	sceneLoadKit(1);
+	memset(partStates, 0, sizeof(partStates));
+	cutCount = filedCount = builtCount = currentRunner = 0;
+	boxOpen = runnerLift = 0.0f; boxOpening = false; selectedPart = -1;
+
+	printf("UNDO AUDIT %s\n", ok ? "PASS" : "FAIL");
+}
+#else
+static void runUndoAudit(void) { }
+#endif
 
 #if TEST_SAVELOAD_AUDIT
 #include <sys/stat.h>
@@ -3286,27 +4125,41 @@ static void runSaveLoadAudit(void)
 	}
 
 	// A save the card will not take. Nothing in the game can unplug an SD card,
-	// so the block is a directory standing where save.bin goes: fopen(..,"wb")
-	// cannot open it, which is the same "cannot open for write" saveWritePath
-	// reports for a full, missing or write-protected card.
+	// so the block is a directory standing where the write opens its file:
+	// fopen(..,"wb") cannot open it, which is the same "cannot open for write"
+	// saveWritePath reports for a full, missing or write-protected card.
+	//
+	// The directory goes on the temp path, not on save.bin. Item 9 moved the
+	// write to a temp file and renamed it into place, so a directory sitting at
+	// save.bin no longer blocks anything - the write lands beside it and the
+	// rename clears it out of the way. Blocking save.bin still made this row say
+	// OK, which is the worst kind of test: one that passes while testing nothing.
 	{
 		remove(SAVE_PATH);
-		bool blocked = mkdir(SAVE_PATH, 0777) == 0;
+		bool blocked = mkdir(SAVE_PATH ".tmp", 0777) == 0;
 		menuSaveNow();
 		bool refusedOk = blocked && strncmp(menuNote, "SAVE FAILED", 11) == 0;
 		printf("SL refused save %s\n",
 			refusedOk ? "OK" : (blocked ? "FAIL" : "FAIL - could not block the path"));
 		if (!refusedOk) { ok = false; printf("SL   note: %s\n", menuNote); }
-		if (blocked) rmdir(SAVE_PATH);
+		if (blocked) rmdir(SAVE_PATH ".tmp");
 	}
 
 	// A card that stops taking bytes half way through the write - the failure the
 	// directory trick above cannot reach, because that one never gets past fopen.
-	// Two things have to hold afterwards: the row says the save failed, and the
-	// torn file that is now sitting on the card cannot come back as half a build.
-	// save.c zeroes the blob on a read that fails after the header, so what is
-	// being proved on the load side is that menuLoadNow puts the bench back rather
-	// than handing the player twenty empty kits.
+	//
+	// This is the case item 9's atomic write exists for, so it is what gets
+	// proved. A good save goes down first, the bench is then moved on, and the
+	// second write is torn. Three things have to hold: the row says the save
+	// failed; the FIRST save is still on the card and loads back exactly as it was
+	// written; and the temp file the torn write used is gone rather than left
+	// behind to grow the card a copy at a time.
+	//
+	// Before the atomic write this test asserted the opposite outcome - that the
+	// torn file on the card came back as "NO SAVE TO LOAD" and the bench was kept.
+	// That was the best available then, because the good save had already been
+	// truncated away by fopen("wb") and there was nothing left to recover. The
+	// empty-card case above still covers the bench-kept half on its own.
 	{
 		remove(SAVE_PATH);
 		sceneLoadKit(1);
@@ -3315,21 +4168,40 @@ static void runSaveLoadAudit(void)
 		u64 t = osGetTime();
 		if (meshPartCount() > 0) { cutPart(0, t); updateCuts(t + CUT_ANIM_MS + 1); }
 
+		// The state that must survive the torn write.
 		static partState keep[MESH_MAX_PARTS];
 		memcpy(keep, partStates, sizeof(keep));
 		int keepCut = cutCount;
+		menuSaveNow();
+		bool firstSaveOk = strncmp(menuNote, "SAVED", 5) == 0;
+
+		// Move the bench on, so a load that returns the first save is telling us
+		// something a load that returned whatever is in memory could not.
+		if (meshPartCount() > 1) { cutPart(1, t); updateCuts(t + CUT_ANIM_MS + 1); }
+		bool movedOn = cutCount != keepCut;
 
 		saveTestTearNextWrite = true;
 		menuSaveNow();
 		bool tornSaveOk = strncmp(menuNote, "SAVE FAILED", 11) == 0;
 
+		// The temp is an implementation detail of save.c, checked here because a
+		// leaked one is invisible from inside the game and the whole point of the
+		// scheme is that the card only ever holds the one file.
+		struct stat st;
+		bool noTempLeft = stat(SAVE_PATH ".tmp", &st) != 0;
+
 		menuLoadNow(); menuLoadNow();
-		bool tornLoadOk = strncmp(menuNote, "NO SAVE TO LOAD", 15) == 0 &&
+		bool tornLoadOk = strncmp(menuNote, "LOADED", 6) == 0 &&
 			memcmp(partStates, keep, sizeof(keep)) == 0 && cutCount == keepCut;
 
-		printf("SL torn write %s, bench kept %s\n",
-			tornSaveOk ? "OK" : "FAIL", tornLoadOk ? "OK" : "FAIL");
-		if (!tornSaveOk || !tornLoadOk) { ok = false; printf("SL   note: %s\n", menuNote); }
+		printf("SL torn write %s, old save survived %s, no temp left %s\n",
+			tornSaveOk ? "OK" : "FAIL", tornLoadOk ? "OK" : "FAIL",
+			noTempLeft ? "OK" : "FAIL");
+		if (!firstSaveOk || !movedOn) printf("SL   torn setup FAIL (first save / bench moved on)\n");
+		if (!tornSaveOk || !tornLoadOk || !noTempLeft || !firstSaveOk || !movedOn)
+		{
+			ok = false; printf("SL   note: %s\n", menuNote);
+		}
 	}
 
 	printf("SAVELOAD AUDIT %s\n", ok ? "PASS" : "FAIL");
@@ -3359,12 +4231,135 @@ static void runSaveLoadAudit(void)
 static void runSaveLoadAudit(void) { }
 #endif
 
-// Options has three rows now rather than the one it opened with, so it needs a
+// Options has four rows now rather than the one it opened with, so it needs a
 // cursor of its own. Kept separate from menuCursor so backing out of Options and
 // into it again does not move the pause menu's selection under the player.
-static const char* const optionRows[] = { "MASTER VOLUME", "SHOW TUTORIAL", "SWAP START / SELECT" };
-#define OPTION_ROW_COUNT 3
+//
+// LANGUAGE is item 8's half of this page. It was reachable only from the front
+// end's own Options, which meant changing it mid-build cost the player a trip
+// out to the title screen; the other half of that item is the Controls page
+// below, which used to be a read-only legend and now rebinds.
+static const char* const optionRows[] = { "MASTER VOLUME", "SHOW TUTORIAL", "SWAP START / SELECT", "LANGUAGE" };
+#define OPTION_ROW_COUNT 4
+#define OPTION_ROW_LANGUAGE 3
 static int optionsCursor = 0;
+
+// Row geometry for this page. The three-row version sat at 102 with
+// MENU_ROW_STEP (31) between rows and 26px rows; a fourth row at that pitch
+// ends at 221, straight through the divider at 198 and the footer hint at 221.
+// Measured against the 240px screen the same way the pause menu's own numbers
+// were: at top 100 / step 25 / height 22 the fourth row runs 175 to 197, which
+// is the last row that clears the divider.
+#define OPTION_ROW_TOP    100.0f
+#define OPTION_ROW_STEP    25.0f
+#define OPTION_ROW_HEIGHT  22.0f
+
+// Move the language by `step` and make every cached copy of the old one catch
+// up. Three things hold text in a language: this menu, which re-parses every
+// frame and so needs nothing; the front end, which parses once and keeps the
+// handles - titleRefreshStrings exists for this call; and the top-screen
+// console, which prints only when something asks it to repaint.
+//
+// The console is deliberately not asked here. serviceTopRepaint drops any queued
+// repaint while the pause menu is open (it is about to own that buffer again),
+// and both ways out of the menu - Resume and B - already queue one, so the
+// console reprints itself in the new language the moment the player is back at
+// the bench. Asking from in here would only be a request that gets thrown away.
+//
+// The direction is honoured rather than always stepping forward. With the two
+// languages shipped today it makes no difference - back and forward are the
+// same move out of two - but the row's own footer says LEFT / RIGHT CHANGE, and
+// a third language must not quietly turn one of those two into a lie.
+static void optionsStepLanguage(int step)
+{
+	int next = ((int)languageCurrent() + step) % LANG_COUNT;
+	if (next < 0) next += LANG_COUNT;
+	languageSet((gameLanguage)next);
+	titleRefreshStrings();
+}
+
+// --- the in-level Controls page (item 8) ------------------------------------
+//
+// Twelve rows on a 240px screen. The header divider sits at 66 and the footer
+// hint is fixed at MENU_FOOTER_Y (221) with the listening/help line 12 above
+// it, so the rows have 70 to 209 to live in: twelve at an 11px pitch is 132 and
+// the last row ends at 202. This is the same 11px the front end's own Controls
+// page arrived at for the same twelve rows, for the same reason.
+#define CTRL_ROW_TOP     70.0f
+#define CTRL_ROW_STEP    11.0f
+#define CTRL_ROW_HEIGHT  10.0f
+#define CTRL_KEY_X       63.0f
+#define CTRL_KEY_W       77.0f
+// Two bindings on one row: 37 each with a 3px gutter fits the same 77.
+#define CTRL_HALF_W      37.0f
+
+// The cursor moves over bindable slots, not over rows. Three of the twelve rows
+// (D-Pad Left/Right, L/R, Y/X) carry two independently bindable actions, and
+// three more (tap, rub, drag) carry none at all, so "row N" and "the thing the
+// player is pointing at" are not the same number. Walking the table once and
+// keeping the answer means the cursor cannot land somewhere unbindable.
+typedef struct
+{
+	int   row;
+	bool  rightHalf;
+	settingsRemapAction action;
+} controlSlot;
+
+static controlSlot controlSlots[REMAP_ACTION_COUNT];
+static int controlSlotCount;
+static int controlsCursor;
+
+static void buildControlSlots(void)
+{
+	controlSlotCount = 0;
+	for (int row = 0; row < CONTROL_LINE_COUNT && controlSlotCount < REMAP_ACTION_COUNT; row++)
+	{
+		int left = controlsRowAction(row, false);
+		if (left < 0) continue;   // a stylus row - nothing to bind
+		controlSlots[controlSlotCount].row       = row;
+		controlSlots[controlSlotCount].rightHalf = false;
+		controlSlots[controlSlotCount].action    = (settingsRemapAction)left;
+		controlSlotCount++;
+
+		if (controlsRowIsSplit(row) && controlSlotCount < REMAP_ACTION_COUNT)
+		{
+			controlSlots[controlSlotCount].row       = row;
+			controlSlots[controlSlotCount].rightHalf = true;
+			controlSlots[controlSlotCount].action    = (settingsRemapAction)controlsRowAction(row, true);
+			controlSlotCount++;
+		}
+	}
+}
+
+// True if the cursor is sitting on this half of this row.
+static bool controlSlotSelected(int row, bool rightHalf)
+{
+	if (controlsCursor < 0 || controlsCursor >= controlSlotCount) return false;
+	return controlSlots[controlsCursor].row == row &&
+	       controlSlots[controlsCursor].rightHalf == rightHalf;
+}
+
+// One bindable key cell: the button currently doing this job, or PRESS while
+// this is the row waiting for a new one.
+//
+// Amber is a conflict - two actions on the same button. Allowed rather than
+// refused, the same way the front end's page allows it; the cell just says so.
+static void drawControlKeyCell(int row, bool rightHalf, float x, float w, float y)
+{
+	settingsRemapAction action = (settingsRemapAction)controlsRowAction(row, rightHalf);
+	bool selected  = controlSlotSelected(row, rightHalf);
+	bool listening = selected && controlsIsListening() &&
+	                 controlsListeningAction() == action;
+
+	C2D_DrawRectSolid(x, y, 0.0f, w, CTRL_ROW_HEIGHT,
+		selected ? PAPER_BLUE : C2D_Color32(0xE8, 0xF1, 0xF8, 0xFF));
+
+	u32 ink = selected ? PAPER_WHITE
+	        : controlsRemapConflict(action) ? PAPER_AMBER
+	        : PAPER_BLUE;
+	const char* text = listening ? "PRESS" : STR(controlsKeyLabelId(settingsRemapButton(action)));
+	beginnerLabel(text, x + 5.0f, y + 1.0f, 0.30f, listening ? PAPER_AMBER : ink);
+}
 
 // The in-level pages use the same paper sheet as the first-build guide.  Keeping
 // the controls as short labelled actions makes them useful without showing a
@@ -3409,26 +4404,67 @@ static void drawInLevelMenu(void)
 		// it lives on. Without it the only difference a successful save makes is
 		// nothing at all happening, which reads exactly like a row that is not
 		// wired up.
-		if (menuNote[0]) beginnerLabel(menuNote, 66.0f, MENU_MAIN_NOTE_Y, 0.30f, PAPER_INK);
+		//
+		// A failing autosave takes the same line when there is nothing else to say
+		// on it, in amber. It cannot simply share menuNote: that is cleared every
+		// time the menu opens, and this has to keep saying so until a save works.
+		if (menuNote[0])
+			beginnerLabel(menuNote, 66.0f, MENU_MAIN_NOTE_Y, 0.30f, PAPER_INK);
+		else if (autosaveNote[0])
+			beginnerLabel(autosaveNote, 66.0f, MENU_MAIN_NOTE_Y, 0.30f, PAPER_AMBER);
 		beginnerLabel("D-PAD  MOVE     A  SELECT     B  RESUME", 62.0f, MENU_FOOTER_Y, 0.31f, PAPER_BLUE);
 	}
 	else if (menuOn == PAGE_CONTROLS)
 	{
-		// Eight rows, in the same order the console manual lists them. Three of
-		// these - the manual paging, the view reset and closing the game - used
-		// to be missing here, so the page told a player five of the eight
-		// buttons that do something. The rows sit closer together to make room.
-		const char* action[] = { "TAP", "RUB", "DRAG", "D-PAD", "L / R", "A", "SELECT", "START" };
-		const char* meaning[] = { "choose, snip, or fit", "file a loose part smooth", "turn the workbench", "page the manual", "zoom the view", "reset the view", "pause the build", "close the game" };
-		for (int i = 0; i < 8; i++)
+		// All twelve canonical rows, and every one of them rebindable in place.
+		//
+		// This page used to be eight rows of hardcoded English read off a fixed
+		// array, which had two problems item 8 had to deal with. It was a legend,
+		// not a settings page - rebinding was reachable only from the front end,
+		// so a player who wanted a different button mid-build had to quit the
+		// level to get it. And controls.h says in as many words that the 8-row
+		// shape goes stale: controlKeyRow falls back to the row's original text
+		// the moment an action lands on a button that page has no label for
+		// (B, X, Y, L, R or any D-Pad direction), so it would quietly show the
+		// wrong button. Reading the canonical table instead fixes both, and
+		// picks up the translations that array never had.
+		const controlLine* lines = controlList();
+		for (int row = 0; row < CONTROL_LINE_COUNT; row++)
 		{
-			float y = 76.0f + i * 17.0f;
-			C2D_DrawRectSolid(63.0f, y, 0.0f, 77.0f, 15.0f, C2D_Color32(0xE8, 0xF1, 0xF8, 0xFF));
-			// The last two rows are the pause and close bindings, and Options can
-			// trade them. Only the button name moves; what it does stays put.
-			beginnerLabel(action[controlKeyRow(i, 8)], 76.0f, y + 2.0f, 0.32f, PAPER_BLUE);
-			beginnerLabel(meaning[i], 153.0f, y + 2.0f, 0.32f, PAPER_INK);
+			float y = CTRL_ROW_TOP + row * CTRL_ROW_STEP;
+			int left = controlsRowAction(row, false);
+
+			if (left < 0)
+			{
+				// Tap, rub and drag: gestures, not button presses, so there is
+				// nothing here to bind. Drawn flat and never reachable by the
+				// cursor rather than hidden, because they are still three of the
+				// things a player needs telling about.
+				C2D_DrawRectSolid(CTRL_KEY_X, y, 0.0f, CTRL_KEY_W, CTRL_ROW_HEIGHT, PAPER_WHITE);
+				beginnerLabel(STR(lines[row].key), CTRL_KEY_X + 5.0f, y + 1.0f, 0.30f, PAPER_LINE);
+			}
+			else if (controlsRowIsSplit(row))
+			{
+				// One row, two bindings - the manual's page-back/page-forward pair
+				// and the two zoom directions each live on one line in the table
+				// but move independently.
+				drawControlKeyCell(row, false, CTRL_KEY_X, CTRL_HALF_W, y);
+				drawControlKeyCell(row, true, CTRL_KEY_X + CTRL_HALF_W + 3.0f, CTRL_HALF_W, y);
+			}
+			else
+			{
+				drawControlKeyCell(row, false, CTRL_KEY_X, CTRL_KEY_W, y);
+			}
+
+			beginnerLabel(STR(lines[row].action), 153.0f, y + 1.0f, 0.30f, PAPER_INK);
 		}
+
+		// Two lines rather than one, because this page now has four things a
+		// player can do on it and the old single line only had room to name one.
+		beginnerLabel(controlsIsListening() ? "PRESS ANY BUTTON     B  CANCEL"
+		                                    : "D-PAD  MOVE     A  REBIND     X  DEFAULTS",
+			62.0f, MENU_FOOTER_Y - 12.0f, 0.29f,
+			controlsIsListening() ? PAPER_AMBER : PAPER_INK);
 		beginnerLabel("B  BACK TO PAUSE MENU", 111.0f, MENU_FOOTER_Y, 0.34f, PAPER_BLUE);
 	}
 	else
@@ -3444,18 +4480,18 @@ static void drawInLevelMenu(void)
 		beginnerLabel(ram, 255.0f, 32.0f, 0.32f, PAPER_BLUE);
 		beginnerLabel("SETTINGS", 76.0f, 84.0f, 0.32f, PAPER_BLUE);
 
-		// Three rows on one page, drawn the same way the pause menu draws its
+		// Four rows on one page, drawn the same way the pause menu draws its
 		// items so the cursor means the same thing in both places. Each row shows
 		// its value on the right, because a toggle that only reads "SHOW TUTORIAL"
 		// tells a player what it is about and not what it is currently doing.
 		for (int i = 0; i < OPTION_ROW_COUNT; i++)
 		{
-			float y = 102.0f + i * MENU_ROW_STEP;
+			float y = OPTION_ROW_TOP + i * OPTION_ROW_STEP;
 			bool selected = i == optionsCursor;
-			C2D_DrawRectSolid(MENU_ROW_X, y, 0.0f, MENU_ROW_WIDTH, 26.0f,
+			C2D_DrawRectSolid(MENU_ROW_X, y, 0.0f, MENU_ROW_WIDTH, OPTION_ROW_HEIGHT,
 				selected ? C2D_Color32(0xE8, 0xF1, 0xF8, 0xFF) : PAPER_WHITE);
-			C2D_DrawRectSolid(MENU_ROW_X, y, 0.0f, 4.0f, 26.0f, selected ? PAPER_BLUE : PAPER_LINE);
-			beginnerLabel(optionRows[i], 78.0f, y + 6.0f, 0.38f, PAPER_INK);
+			C2D_DrawRectSolid(MENU_ROW_X, y, 0.0f, 4.0f, OPTION_ROW_HEIGHT, selected ? PAPER_BLUE : PAPER_LINE);
+			beginnerLabel(optionRows[i], 78.0f, y + 4.0f, 0.36f, PAPER_INK);
 
 			if (i == 0)
 			{
@@ -3463,15 +4499,22 @@ static void drawInLevelMenu(void)
 				// player who wants the number rather than the shape.
 				int lit = settingsVolume() / VOLUME_STEP;
 				for (int c = 0; c < VOLUME_CELLS; c++)
-					C2D_DrawRectSolid(190.0f + c * 11.0f, y + 7.0f, 0.0f, 8.0f, 12.0f,
+					C2D_DrawRectSolid(190.0f + c * 11.0f, y + 5.0f, 0.0f, 8.0f, 12.0f,
 						c < lit ? PAPER_BLUE : PAPER_LINE);
 				char volume[12]; snprintf(volume, sizeof(volume), "%d%%", settingsVolume());
-				beginnerLabel(volume, 305.0f, y + 6.0f, 0.38f, PAPER_BLUE);
+				beginnerLabel(volume, 305.0f, y + 4.0f, 0.36f, PAPER_BLUE);
+			}
+			else if (i == OPTION_ROW_LANGUAGE)
+			{
+				// Written in its own language ("Français", not "French"): it is the
+				// one value on this page a player who has just landed in a language
+				// they cannot read can still recognise on sight.
+				beginnerLabel(languageName(languageCurrent()), 256.0f, y + 4.0f, 0.36f, PAPER_BLUE);
 			}
 			else
 			{
 				bool on = i == 1 ? settingsShowTutorial() : settingsSwapStartSelect();
-				beginnerLabel(on ? "ON" : "OFF", 296.0f, y + 6.0f, 0.38f, PAPER_BLUE);
+				beginnerLabel(on ? "ON" : "OFF", 296.0f, y + 4.0f, 0.36f, PAPER_BLUE);
 			}
 		}
 
@@ -3501,7 +4544,10 @@ static bool menuInput(u32 kDown, bool isNew3DS)
 	// One click for every press this menu acts on. Done once at the top rather
 	// than on each branch below, because a menu that is silent on some of its
 	// buttons reads as a menu that missed the press.
-	if (kDown & (KEY_A | KEY_B | KEY_SELECT | KEY_DUP | KEY_DDOWN | KEY_DLEFT | KEY_DRIGHT))
+	// KEY_X joined the list when the Controls page gained its reset-to-defaults
+	// row: a button that silently changes twelve bindings is the last one that
+	// should be the quiet one.
+	if (kDown & (KEY_A | KEY_B | KEY_X | KEY_SELECT | KEY_DUP | KEY_DDOWN | KEY_DLEFT | KEY_DRIGHT))
 		audioPlay(SND_UI);
 
 	if (menuOn == PAGE_OPTIONS)
@@ -3522,13 +4568,35 @@ static bool menuInput(u32 kDown, bool isNew3DS)
 		{
 			if (optionsCursor == 0) { if (step) settingsVolumeStep(step * VOLUME_STEP); }
 			else if (optionsCursor == 1) settingsSetShowTutorial(!settingsShowTutorial());
+			else if (optionsCursor == OPTION_ROW_LANGUAGE) optionsStepLanguage(step ? step : 1);
 			else settingsSetSwapStartSelect(!settingsSwapStartSelect());
 		}
 		if (kDown & (KEY_B | KEY_SELECT)) menuOn = PAGE_MAIN;
 	}
+	else if (menuOn == PAGE_CONTROLS)
+	{
+		// The rebind page. A press that is meant to BE a binding never reaches
+		// here at all - gameUpdateFrame swallows the whole frame's keys while
+		// controlsIsListening(), so this only ever sees navigation.
+		if (controlSlotCount > 0)
+		{
+			if (kDown & KEY_DUP)
+				controlsCursor = (controlsCursor + controlSlotCount - 1) % controlSlotCount;
+			if (kDown & KEY_DDOWN)
+				controlsCursor = (controlsCursor + 1) % controlSlotCount;
+			if (kDown & KEY_A)
+				controlsBeginListen(controlSlots[controlsCursor].action);
+		}
+		// Always available, and deliberately not behind a confirm: it cannot lose
+		// anything a player cares about, and it is the way back from a layout that
+		// has been made unusable - which is exactly the state in which a two-press
+		// confirm is hardest to drive.
+		if (kDown & KEY_X) settingsResetRemap();
+		if (kDown & (KEY_B | KEY_SELECT)) menuOn = PAGE_MAIN;
+	}
 	else if (menuOn != PAGE_MAIN)
 	{
-		// The Controls page only reads; anything that means "done" goes back.
+		// Any other read-only page: anything that means "done" goes back.
 		if (kDown & (KEY_A | KEY_B | KEY_SELECT)) menuOn = PAGE_MAIN;
 	}
 	else
@@ -3556,7 +4624,11 @@ static bool menuInput(u32 kDown, bool isNew3DS)
 				case 0: menuOn = PAGE_NONE; queueTopRepaint(TOP_REPAINT_LEVEL); break;
 				case MENU_ROW_SAVE: menuSaveNow(); break;
 				case MENU_ROW_LOAD: menuLoadNow(); break;
-				case 3: menuOn = PAGE_CONTROLS; break;
+				// Rebuilt on entry rather than once at boot: it is twelve
+				// iterations over a constant table, and doing it here means the
+				// page cannot be looking at a slot list from before something
+				// changed the table under it.
+				case 3: menuOn = PAGE_CONTROLS; buildControlSlots(); controlsCursor = 0; break;
 				case 4: menuOn = PAGE_OPTIONS; optionsCursor = 0; break;
 				case 5: return true;
 			}
@@ -3657,7 +4729,12 @@ static int gameInit(void)
 		// Nothing below can run without it: every frame clears and draws on this
 		// target, and C3D_FrameDrawOn would be handed NULL. Better to say so on
 		// the console that is already up than to fault on the first frame.
+		// Held on screen for the same reason as SCENE INIT FAILED below: without
+		// the pause, the message is written to a console that is torn down on
+		// the next two lines, so a player on real hardware bounces straight back
+		// to the HOME menu with nothing to report and no idea anything was said.
 		printf("BOTTOM RENDER TARGET FAILED\n");
+		showConsoleAndPause();
 		C3D_Fini(); gfxExit();
 		return 1;
 	}
@@ -3686,12 +4763,16 @@ static int gameInit(void)
 		// Level 1's sheet and every paused menu are drawn on this, and all three
 		// draw paths clear it without asking. There is no console fallback for
 		// the menus, so carrying on would only defer the fault.
+		// Same as the bottom target above - print, then hold it long enough to
+		// be read, because everything that could draw it is shut down below.
 		printf("TOP RENDER TARGET FAILED\n");
+		showConsoleAndPause();
 		C2D_Fini(); sceneExit(); C3D_Fini(); gfxExit();
 		return 1;
 	}
 	C3D_RenderTargetSetOutput(beginnerTarget, GFX_TOP, GFX_LEFT, TOP_TRANSFER_FLAGS);
 	beginnerText = C2D_TextBufNew(4096);
+	benchText = C2D_TextBufNew(128);
 	// The updater brings up its own services - sockets, AM and the RomFs its
 	// certificate bundle lives in. A console with no network, or a 3DSX build
 	// with no reach into AM, fails here and the Options page greys the button
@@ -3716,6 +4797,12 @@ static int gameInit(void)
 	// from a level.
 	publishCompletion();
 
+	// Item 12. Everything the audits print from here on is copied to
+	// sdmc:/3ds/modelkit/audit.log as well as to the screen, so tools/regress.py
+	// can read the verdict off the card instead of a person reading it off a
+	// screenshot. Compiles to nothing in a build with no audit flag on.
+	auditLogBegin(AUDIT_LOG_NAME);
+
 	runCameraIdleAudit();
 	runCameraPanAudit();
 	runCeilingAudit();
@@ -3723,6 +4810,7 @@ static int gameInit(void)
 	runPaintAudit();
 	runHintAudit();
 	runSaveLoadAudit();
+	runUndoAudit();
 	#if TEST_SAVELOAD_AUDIT
 	// Same hold the other console-output audits use: the frame loop paints over
 	// the top screen within one frame, and this output has to survive long
@@ -3760,6 +4848,17 @@ static int gameInit(void)
 	#if TEST_COLLISION_AUDIT
 	meshCollisionAuditAllKits();
 	#endif
+
+	// Every audit has had its say, so the harness can stop waiting.
+	//
+	// It goes here rather than at the bottom of gameInit because everything below
+	// is capture setup for the flags a machine cannot read anyway. The saveload,
+	// hint and paint audits still sit through their own fifteen-second on-screen
+	// hold above before reaching this line - those holds exist so a person can
+	// photograph the console, and they are left alone rather than made conditional
+	// on something that did not exist when they were written.
+	auditLogEnd();
+
 	#if TEST_CAPTURE_LEVEL > 0
 	enterLevel(TEST_CAPTURE_LEVEL, isNew3DS);
 	#if TEST_CAPTURE_OPEN
@@ -3868,6 +4967,32 @@ static void handleTap(u64 now)
 
 	lastTapX = (int)lastTouch.px;
 	lastTapY = (int)lastTouch.py;
+
+	// Undo outranks even posing, and it has to: undo is the way out of the tap
+	// the player has just regretted, so anything that could swallow the tap first
+	// is a way for the button to be dead exactly when it is wanted. It sits in
+	// the top-right corner, where nothing on the bench is ever picked, so it
+	// takes nothing away from the hit tests below.
+	//
+	// Only while the button is on screen - the same three conditions the drawing
+	// is gated on, or a tap would fire an invisible control. boxOpen is the one
+	// that matters in play: before the box is open the whole screen is the box.
+	if (!TEST_CAPTURE_HIDE_GUIDE && menuOn == PAGE_NONE && boxOpen >= 1.0f
+		&& pickUndoButton(lastTapX, lastTapY))
+	{
+		if (undoPop())
+		{
+			snprintf(seatMsg, sizeof(seatMsg), "%s", STR(STR_C_UNDO_DONE));
+			audioPlay(SND_CLICK);
+		}
+		else
+		{
+			snprintf(seatMsg, sizeof(seatMsg), "%s", STR(STR_C_UNDO_NOTHING));
+			audioPlay(SND_REFUSE);
+		}
+		tapPending = false;
+		return;
+	}
 
 	// Posing outranks everything else a tap could mean. It can only be on
 	// once the kit is fully built (see gameUpdateFrame), by which point
@@ -4182,6 +5307,25 @@ static bool gameUpdateFrame(void)
 	u32 kDown = controlsTranslate(hidKeysDown());
 	u32 kHeld = controlsTranslate(hidKeysHeld());
 	u32 kUp   = controlsTranslate(hidKeysUp());
+
+	// The in-level Controls page is waiting for a button to bind (item 8).
+	//
+	// That press is the binding and nothing else. controlsPollListen reads the
+	// raw hardware itself - the physical press, not what it currently means - and
+	// this frame's translated keys are dropped so the same press cannot also
+	// close the game on its way past, pause, or move the cursor it was aimed at.
+	// The START check immediately below is exactly why this has to come first:
+	// binding "close the game" to START would otherwise close the game.
+	//
+	// Listening is also cancelled the moment the page is not the one on screen,
+	// so it can never be left armed and swallow a press made minutes later.
+	if (menuOn != PAGE_CONTROLS && controlsIsListening()) controlsCancelListen();
+	if (controlsIsListening())
+	{
+		controlsPollListen();
+		kDown = kHeld = kUp = 0;
+	}
+
 	if (kDown & KEY_START)
 		return true; // close the game
 
@@ -4543,6 +5687,16 @@ static bool gameUpdateFrame(void)
 			updateFocus();
 		}
 
+		// Item 9. Gated on the same two things the saveCurrentLevel above is: only
+		// while a level is actually open, and never under a verification flag,
+		// where the state on the bench was forced by a harness and must not reach
+		// the player's card.
+		//
+		// Runs while paused as well as while playing. A console left sitting on the
+		// pause menu is exactly the one most likely to run flat, and the array it
+		// writes was brought up to date on the line above before the menu opened.
+		if (!showTitle && !TEST_ANY_HARNESS) autosaveTick(now);
+
 		// One transform for both the hit test and the frame it is tested
 		// against, so a tap always hits what is on screen.
 		buildModelView(&modelView);
@@ -4589,6 +5743,11 @@ static void gameRenderFrame(void)
 	C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
 		if (showTitle)
 		{
+			// The preview goes first: it clears the top target and draws the kit
+			// into it, and titleDraw then points citro2d back at the bottom one
+			// for the front end itself. The other way round would leave the last
+			// C2D_SceneBegin aimed at the top screen.
+			if (titlePreviewActive()) previewDraw();
 			titleDraw(benchTarget);
 		}
 		else
@@ -4641,6 +5800,26 @@ static void gameRenderFrame(void)
 					C2D_Flush();
 				}
 			}
+			// The progress tag. Not under the pause menu, which covers the top
+			// screen but leaves the bench visible behind it and would end up with
+			// two competing readouts on screen at once. Not while the box is still
+			// opening either: every count is zero until it has finished, so the tag
+			// would appear during the one animation the player is meant to be
+			// watching in order to say nothing at all. Not in a capture build, for
+			// the same reason the hint dot is not.
+			if (!TEST_CAPTURE_HIDE_GUIDE && menuOn == PAGE_NONE && boxOpen >= 1.0f)
+			{
+				C2D_Prepare();
+				C2D_SceneBegin(benchTarget);
+				// Cleared here rather than inside either drawer: both parse into it,
+				// and drawBenchHud can return early on a kit with no parts, which
+				// would leave the buffer to grow a label a frame with nothing ever
+				// emptying it.
+				C2D_TextBufClear(benchText);
+				drawBenchHud();
+				drawUndoButton();
+				C2D_Flush();
+			}
 			if (menuOn != PAGE_NONE) drawInLevelMenu();
 			else if (!TEST_AUDIT_ALL_KITS && !TEST_COLLISION_AUDIT && !TEST_CAPTURE_HIDE_GUIDE && beginnerTopShowing())
 			{
@@ -4668,7 +5847,16 @@ static void gameRenderFrame(void)
 	// console - so C3D_FrameEnd never swaps it. Left unswapped, NEITHER
 	// screen presents and the whole app goes black. Swapping it by hand is
 	// what makes a bottom-screen-only layout work at all.
-	if (TEST_AUDIT_ALL_KITS || TEST_COLLISION_AUDIT || TEST_CEILING_AUDIT || TEST_CAPTURE_HIDE_GUIDE || !(!showTitle && (beginnerTopShowing() || menuOn != PAGE_NONE)))
+	//
+	// So the swap is owed exactly when nothing in this frame rendered to
+	// beginnerTarget. Three things can: the beginner sheet, the pause menu, and
+	// now the level-select preview - which is the first of them that runs while
+	// the front end is up, so the old test's "not showTitle" is no longer enough
+	// on its own.
+	const bool topDrawnByCitro = showTitle
+		? titlePreviewActive()
+		: (beginnerTopShowing() || menuOn != PAGE_NONE);
+	if (TEST_AUDIT_ALL_KITS || TEST_COLLISION_AUDIT || TEST_CEILING_AUDIT || TEST_CAPTURE_HIDE_GUIDE || !topDrawnByCitro)
 		gfxScreenSwapBuffers(GFX_TOP, false);
 }
 
@@ -4700,6 +5888,7 @@ static void gameShutdown(void)
 	titleExit();
 	updaterExit();
 	C2D_TextBufDelete(beginnerText);
+	C2D_TextBufDelete(benchText);
 	C2D_Fini();
 	sceneExit();
 	C3D_Fini();

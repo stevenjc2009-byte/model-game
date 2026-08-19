@@ -40,6 +40,13 @@ typedef enum
 	STR_OPTIONS,
 	STR_QUIT,
 
+	// The level select's top-screen preview - the kit the highlighted tile
+	// holds, turning on the spot above the grid it was picked from.
+	STR_PRE_LOCKED,      // shown on the top screen over an unbuilt kit's outline
+	STR_PRE_PARTS,       // "%d parts"
+	STR_PRE_RUNNERS,     // "%d runners"
+	STR_PRE_RUNNER_1,    // the singular of the above - most kits are on one runner
+
 	// Options page (front end)
 	STR_VOLUME,
 	STR_MINUS,
@@ -69,7 +76,6 @@ typedef enum
 	STR_UPD_NEWEST_ROW,     // "Newest     %s"
 
 	// Level select
-	STR_LEVELS_HDR,
 	STR_PREV,
 	STR_NEXT,
 	STR_BUILT_TAG,
@@ -189,6 +195,22 @@ typedef enum
 	STR_C_STATUS_POSE_HINT,      // "%s - L/R to pose"
 	STR_C_STATUS_TAP_MOVES,      // "tap a part that moves"
 	STR_C_STATUS_RAM,            // "RAM %u%%"
+
+	// The bench progress strip - the small paper tag in the corner of the
+	// workbench that says how far into the kit the player is. Two lines: which
+	// step the manual is open at, and how much of each of the three jobs is
+	// done. Kept as format strings so the French words are the same length
+	// problem as any other translation rather than a special case.
+	STR_C_BENCH_STEP,            // "STEP %d/%d"
+	STR_C_BENCH_COUNTS,          // "snip %d/%d  file %d/%d  fit %d/%d"
+
+	// One-step undo. The label sits on the bench button; the other two are
+	// status-line answers, and they go through the same seatMsg line every
+	// other thing a tap does reports on, so undo reads as one more thing the
+	// bench can tell you rather than as a system message.
+	STR_C_UNDO_LABEL,            // "UNDO"
+	STR_C_UNDO_DONE,             // "undone"
+	STR_C_UNDO_NOTHING,          // "nothing to undo"
 
 	STR_C_PHOTO_HEADER,          // "\n  Photo mode\n\n"
 	STR_C_PHOTO_NEXT,            // "    X   next angle\n"

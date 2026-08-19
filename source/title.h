@@ -53,6 +53,25 @@ void titleCaptureStartLevel(int level);
 // place of an event that can be missed.
 void titleSetBuilt(int level, bool built);
 
+// Which kit the level select currently has standing on the top screen, 1-based,
+// or 0 on any page that is not the level select. Tapping a tile picks a level
+// rather than starting it, and this is what that pick puts on show; the Play
+// button is what commits to it.
+//
+// The front end cannot draw a kit: the mesh, the vertex buffer and the shader
+// all belong to main.c and none of them are visible from here. So this reports
+// what the player picked and main.c does the drawing, which keeps the one
+// direction of dependency this file already has - main.c reaches into the front
+// end, never the other way.
+int titlePreviewLevel(void);
+
+// True while the level select is the page open, and so while the preview owns
+// the top screen. Separate from titlePreviewLevel() because the two answer
+// different questions: this one says who owns the screen, that one says what to
+// put on it. main.c needs the first to know whether to swap the top screen by
+// hand, which it must do on every frame the preview did not draw.
+bool titlePreviewActive(void);
+
 // One frame of front-end input. Reads the stylus itself, so hidScanInput must
 // already have run. Returns TITLE_STAY unless the player chose something.
 titleAction titleInput(u32 kDown, u32 kHeld, u32 kUp);
@@ -66,3 +85,13 @@ void titlePrintTop(bool isNew3DS);
 // own shader state, so the caller has to put the 3D state back before drawing
 // the bench again.
 void titleDraw(C3D_RenderTarget* target);
+
+// Re-parses every string this file draws, in whatever language is active now.
+//
+// The front end parses its text once and keeps the C2D_Text handles, which is
+// why it needs telling. It already does this for itself when its own Options
+// page changes language; this exists because the in-level Options page can now
+// change it too, and the front end is not running at that moment - without this
+// the player would come back out of the level to a menu still in the old
+// language until the game was restarted.
+void titleRefreshStrings(void);

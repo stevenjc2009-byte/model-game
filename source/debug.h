@@ -10,11 +10,11 @@
 // a build can override one from the Makefile's CFLAGS (-DTEST_CAPTURE_LEVEL=1)
 // without a macro-redefinition error.
 //
-// The verification scripts under scratchpad/probe*/ patch these by exact
-// text - "#define NAME VALUE" on its own line, nothing reformatted - so a
-// script can find and replace a flag's default without parsing C. Keep that
-// form if you touch this file: same names, same default values, same
-// one-flag-per-line layout.
+// tools/regress.py reads this file to find the flags it can run, by exact
+// text - "#define NAME VALUE" on its own line, nothing reformatted - so it
+// never has to parse C. Keep that form if you touch this file: same names,
+// same default values, same one-flag-per-line layout. It switches a flag on
+// for one build with make HARNESS=-DNAME=1 rather than editing anything here.
 
 #pragma once
 
@@ -157,6 +157,16 @@
 #ifndef TEST_SAVELOAD_TOUR
 #define TEST_SAVELOAD_TOUR 0
 #endif
+// Drives the one-step undo against the four actions that take a snapshot -
+// cutPart, fileStroke, seatPart, unseatPart - on every kit in the game, and
+// checks the state that comes back matches what was there before the action
+// byte for byte. Also covers the three answers a hand test at the stylus cannot
+// reach reliably: a second undo in a row must refuse, an action the bench
+// REFUSED must not have spent the slot, and leaving the level must clear it.
+// Console output only, and it never touches the card - undo is entirely in RAM.
+#ifndef TEST_UNDO_AUDIT
+#define TEST_UNDO_AUDIT 0
+#endif
 
 // True when any flag above is on - which is to say, when this build is a
 // verification pass rather than the game.
@@ -181,4 +191,20 @@
 	TEST_CAMERA_PAN_AUDIT || TEST_CEILING_AUDIT || TEST_COLLISION_AUDIT || \
 	TEST_POSE_PART || TEST_ATLAS_GRADIENT || TEST_HINT_AUDIT || \
 	TEST_HINT_TOUR || TEST_PAINT_AUDIT || TEST_SAVELOAD_AUDIT || \
-	TEST_SAVELOAD_TOUR)
+	TEST_SAVELOAD_TOUR || TEST_UNDO_AUDIT)
+
+// The subset of the flags above that answer in words rather than in pictures.
+//
+// Each one runs a check and prints a verdict line, so a machine can read the
+// result. The rest - the TEST_CAPTURE_* flags, the two tours, TEST_POSE_PART,
+// TEST_ATLAS_GRADIENT - exist to put something on screen for a person to look
+// at, and no amount of parsing turns a screenshot into a pass or a fail. They
+// are deliberately not in here.
+//
+// tools/regress.py builds and runs exactly this list. When a new audit is added
+// it goes in here too, or the harness will not know it exists.
+#define TEST_ANY_AUDIT ( \
+	TEST_AUDIT_ALL_KITS || TEST_CAMERA_IDLE_AUDIT || \
+	TEST_LEVEL1_WORKSPACE_AUDIT || TEST_CAMERA_PAN_AUDIT || \
+	TEST_CEILING_AUDIT || TEST_COLLISION_AUDIT || TEST_HINT_AUDIT || \
+	TEST_PAINT_AUDIT || TEST_SAVELOAD_AUDIT || TEST_UNDO_AUDIT)

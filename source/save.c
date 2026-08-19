@@ -53,7 +53,21 @@ static bool saveWritePath(const char* path, const void* blob, unsigned int bytes
 	mkdir("sdmc:/3ds", 0777);
 	mkdir(SAVE_DIR, 0777);
 
-	FILE* f = fopen(path, "wb");
+	// The new bytes go to a sibling temp file and only become the save once every
+	// one of them is on the card. Written straight over the live file - which is
+	// what this used to do - fopen("wb") truncates the good save to nothing before
+	// the first byte of the replacement is written, so a console switched off, a
+	// flat battery or a card pulled anywhere in the middle left the player with
+	// neither the old build nor the new one.
+	//
+	// One save file is kept, not two: the temp exists only while the write is
+	// running and is deleted whether it succeeds or fails, so nothing piles up on
+	// the card. Same directory as the target, so the rename below moves a
+	// directory entry rather than copying the payload a second time.
+	char tmp[128];
+	snprintf(tmp, sizeof(tmp), "%s.tmp", path);
+
+	FILE* f = fopen(tmp, "wb");
 	if (!f) { reason = "cannot open for write"; return false; }
 
 	saveHeader h;
@@ -79,8 +93,32 @@ static bool saveWritePath(const char* path, const void* blob, unsigned int bytes
 	// looked fine can still fail here. Treat that as a failed save.
 	if (fclose(f) != 0) ok = false;
 
-	reason = ok ? "ok" : "write failed";
-	return ok;
+	if (!ok)
+	{
+		// The half-written file never becomes the save, and it does not stay on the
+		// card either. Whatever was there before this call is still there.
+		remove(tmp);
+		reason = "write failed";
+		return false;
+	}
+
+	// devkitPro's sdmc devoptab maps rename onto FSUSER_RenameFile, which refuses
+	// a destination that already exists - so unlike a POSIX rename this cannot be
+	// one atomic swap and the old file has to go first. The window in which
+	// neither file exists is now these two calls instead of the whole write, which
+	// is the improvement. Closing it completely would mean keeping a second copy
+	// on the card permanently, and a second copy is the thing that was explicitly
+	// not wanted.
+	remove(path);
+	if (rename(tmp, path) != 0)
+	{
+		remove(tmp);
+		reason = "could not replace old save";
+		return false;
+	}
+
+	reason = "ok";
+	return true;
 }
 
 // Shared implementation for reading a blob from any path. Both saveReadBlob and

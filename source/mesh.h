@@ -180,6 +180,10 @@ const char* meshKitName(void);
 // and it must not keep its own copy of the number, which is what let the grid
 // advertise counts the kits did not have. Returns 0 for a level outside 1-20.
 int meshKitPartCount(int level);
+// How many runners a level's kit is authored across, without building it - the
+// same "ask the table, do not keep a second copy" rule as meshKitPartCount, and
+// for the same caller. 1 to MESH_MAX_RUNNERS; 0 for a level outside 1-20.
+int meshKitRunnersFor(int level);
 int meshKitRunnerCount(void);
 float meshBenchX(void);
 float meshBenchZ(void);

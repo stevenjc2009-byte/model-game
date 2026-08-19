@@ -1584,6 +1584,18 @@ int meshKitPartCount(int level)
 	return count;
 }
 
+// The declared runner count, returned as authored rather than recounted off the
+// parts. Unlike the part count above, this field cannot drift: validateKitDef
+// already refuses a kit whose runners is outside 1..4, refuses any part whose
+// runner index reaches past it, and refuses any runner with no parts on it - so
+// the number and the parts are held in step at startup, on every kit, and there
+// is nothing here for a recount to catch that boot does not already reject.
+int meshKitRunnersFor(int level)
+{
+	const kitDef* def = kitDefFor(level);
+	return def ? def->runners : 0;
+}
+
 bool meshValidateKits(void)
 {
 	bool ok=true;

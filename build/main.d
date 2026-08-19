@@ -127,6 +127,7 @@ main.o: \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/screenshot.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/camera.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/source/picking.h \
+ C:/Users/steve/Documents/3ds-project-folder/model-making/source/audit_log.h \
  C:/Users/steve/Documents/3ds-project-folder/model-making/build/vshader_shbin.h
 C:/devkitPro/libctru/include/3ds.h:
 C:/devkitPro/libctru/include/3ds/types.h:
@@ -255,4 +256,5 @@ C:/Users/steve/Documents/3ds-project-folder/model-making/source/texture_atlas.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/screenshot.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/camera.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/source/picking.h:
+C:/Users/steve/Documents/3ds-project-folder/model-making/source/audit_log.h:
 C:/Users/steve/Documents/3ds-project-folder/model-making/build/vshader_shbin.h:

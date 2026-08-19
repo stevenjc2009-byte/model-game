@@ -58,6 +58,22 @@ bool screenshotCapture(void)
 	u8* fb = gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, &fbW, &fbH);
 	if (!fb) return false;
 
+	// By the time main.c calls us, C3D_FrameEnd has already queued this
+	// frame into the bottom screen's framebuffer - but that write came from
+	// the GPU, not the CPU, so it never went through the CPU's data cache.
+	// Reading fb with the pixel loop below, without invalidating first, can
+	// hand back whatever the CPU cache happened to be holding for that
+	// address range: leftover bytes from an earlier frame, or a half
+	// written line if the transfer was still landing when a cache line got
+	// pulled. Either way the capture looks fine sometimes and wrong other
+	// times with no code change in between, because it depends on cache
+	// state that a single test run has no reason to hit. Invalidating the
+	// exact byte range the loop below reads (every byte of fb, since the
+	// (x*SHOT_H + r) mapping touches all of them) forces the next read of
+	// each line to come from RAM instead of stale cache.
+	if (R_FAILED(GSPGPU_InvalidateDataCache(fb, SHOT_W * SHOT_H * SHOT_BPP)))
+		return false;
+
 	char path[64];
 	snprintf(path, sizeof(path), SHOT_DIR "/shot_%03d.bmp", findNextIndex());
 

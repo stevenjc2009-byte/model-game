@@ -28,9 +28,17 @@ static const rect rPlaqueTitle = {  12.0f,   8.0f, 236.0f, 46.0f };
 static const rect rPlaquePage  = {   8.0f,   6.0f, 190.0f, 28.0f };
 
 // Title page
-static const rect rPlay    = {  40.0f,  68.0f, 240.0f, 48.0f };
-static const rect rOptions = {  40.0f, 124.0f, 240.0f, 48.0f };
-static const rect rQuit    = {  40.0f, 180.0f, 240.0f, 48.0f };
+//
+// Three rows again. Gallery briefly made this a four-row page at 40 px each; the
+// level select absorbed the gallery, so the row went with it and the remaining
+// three go back to 44 px with a 12 px gutter - 3*44 + 2*12 = 156, from y 62 to
+// y 218, centred in the space under the title plaque. 44 is past what a stylus
+// needs by a comfortable margin; nothing here goes as low as the 28 px Language
+// row on the Options page.
+#define TITLE_ROW_H  44.0f
+static const rect rPlay    = {  40.0f,  62.0f, 240.0f, TITLE_ROW_H };
+static const rect rOptions = {  40.0f, 118.0f, 240.0f, TITLE_ROW_H };
+static const rect rQuit    = {  40.0f, 174.0f, 240.0f, TITLE_ROW_H };
 
 // Options page
 //
@@ -108,9 +116,20 @@ static const rect rLevel[LEVELS_PER_PAGE] =
 	{ 256.0f, 112.0f, 54.0f, 52.0f },
 };
 
-static const rect rPrev    = {   8.0f, 178.0f,  54.0f, 50.0f };
-static const rect rLevBack = {  70.0f, 178.0f, 180.0f, 50.0f };
-static const rect rNext    = { 256.0f, 178.0f,  54.0f, 50.0f };
+// The bottom row. The wide middle button used to be Back and is now Play: with
+// the level select absorbing the gallery, tapping a tile only stands that kit on
+// the top screen, and this is the button that commits to building it. Back moves
+// up to where the page's name plaque was, which is the corner a player already
+// looks at to find out where they are.
+//
+// rLevTopBack is deliberately not rPlaquePage's 190x28 - a plaque is a label and
+// this is a button, so it takes the 40 px height the Options page's buttons use
+// and only the width the word needs. 6 + 40 = 46 still clears the grid's first
+// row at y 52.
+static const rect rPrev       = {   8.0f, 178.0f,  54.0f, 50.0f };
+static const rect rLevPlay    = {  70.0f, 178.0f, 180.0f, 50.0f };
+static const rect rNext       = { 256.0f, 178.0f,  54.0f, 50.0f };
+static const rect rLevTopBack = {   8.0f,   6.0f,  82.0f, 40.0f };
 
 // The volume bar sits between the minus and plus buttons.
 #define BAR_X 68.0f
@@ -155,6 +174,9 @@ typedef enum
 {
 	HIT_NONE = -1,
 	HIT_PLAY,
+	// The level select's own Play, on the wide bottom-row button. Separate
+	// from HIT_PLAY because that one opens the grid and this one leaves it.
+	HIT_PLAY_LEVEL,
 	HIT_OPTIONS,
 	HIT_QUIT,
 	HIT_MINUS,
@@ -231,9 +253,10 @@ static const hitZone zonesLevels[] =
 	{ HIT_CELL0 + 4, &rLevel[4] }, { HIT_CELL0 + 5, &rLevel[5] },
 	{ HIT_CELL0 + 6, &rLevel[6] }, { HIT_CELL0 + 7, &rLevel[7] },
 	{ HIT_CELL0 + 8, &rLevel[8] }, { HIT_CELL0 + 9, &rLevel[9] },
-	{ HIT_PREV,      &rPrev     },
-	{ HIT_NEXT,      &rNext     },
-	{ HIT_BACK,      &rLevBack  },
+	{ HIT_PREV,       &rPrev       },
+	{ HIT_NEXT,       &rNext       },
+	{ HIT_PLAY_LEVEL, &rLevPlay    },
+	{ HIT_BACK,       &rLevTopBack },
 };
 
 // How many parts a level's kit holds now comes from meshKitPartCount(), so this
@@ -259,6 +282,7 @@ static float        heldX  = 0.0f;
 static int levelPage   = 0;   // which half of the twenty the grid is showing
 static int chosenLevel = 1;   // the level the player tapped, 1-based
 
+
 // Which kits have been finished. Pushed in by main.c off the save file - see
 // titleSetBuilt - and read by both the grid and the console, so the tick on a
 // tile and the count above it can never disagree.
@@ -268,6 +292,21 @@ void titleSetBuilt(int level, bool built)
 {
 	if (level < 1 || level > LEVEL_COUNT) return;
 	levelBuilt[level - 1] = built;
+}
+
+int titlePreviewLevel(void)
+{
+	// Gated on the page as well as on the pick, so leaving the level select hands
+	// the top screen straight back to the console without main.c needing to know
+	// the front end has pages at all. chosenLevel is never zero - the grid comes
+	// up with level 1 already picked - so the preview always has something to
+	// stand up, and there is no empty state to draw.
+	return (active && page == PAGE_LEVELS) ? chosenLevel : 0;
+}
+
+bool titlePreviewActive(void)
+{
+	return active && page == PAGE_LEVELS;
 }
 
 static int builtTotal(void)
@@ -343,7 +382,7 @@ static C2D_Text txtKey[CONTROL_ROWS], txtAction[CONTROL_ROWS];
 // own short name, independent of which row or action currently shows it.
 // See controls.c's controlsKeyLabelId() and drawControlsPage() below.
 static C2D_Text txtKeyLabel[REMAP_KEY_COUNT];
-static C2D_Text txtLevHdr, txtPrev, txtNext;
+static C2D_Text txtPrev, txtNext;
 static C2D_Text txtNum[LEVEL_COUNT];
 
 // ---------------------------------------------------------------------------
@@ -393,7 +432,6 @@ static void refreshStaticText(void)
 	parseId(&txtUpdGet,   STR_UPD_GET);
 	parseId(&txtUpdRestart, STR_UPD_RESTART);
 	parseId(&txtUpdOff,   STR_UPD_OFF);
-	parseId(&txtLevHdr,   STR_LEVELS_HDR);
 	parseId(&txtPrev,     STR_PREV);
 	parseId(&txtNext,     STR_NEXT);
 
@@ -469,6 +507,15 @@ static void titleCycleLanguage(void)
 {
 	gameLanguage next = (gameLanguage)((languageCurrent() + 1) % LANG_COUNT);
 	languageSet(next);
+	refreshStaticText();
+}
+
+// Public half of the same thing, for the in-level Options page (item 8), which
+// changes the language while this file is not the thing on screen. It only
+// re-parses - it does not touch the setting - because the caller has already
+// moved it and knows which way.
+void titleRefreshStrings(void)
+{
 	refreshStaticText();
 }
 
@@ -646,14 +693,19 @@ titleAction titleInput(u32 kDown, u32 kHeld, u32 kUp)
 	// release that landed on nothing stays silent.
 	if (fired != HIT_NONE) audioPlay(SND_UI);
 
-	// A grid cell is the only thing that actually starts the game. Which level it
-	// is depends on the page the grid is showing, so it is worked out here rather
-	// than baked into the zone table.
+	// A grid cell. Which level it is depends on the page the grid is showing, so
+	// it is worked out here rather than baked into the zone table.
+	//
+	// A tile no longer starts the level. It picks it: the tile is drawn selected
+	// and main.c stands that kit on the top screen, built in colour or blacked out
+	// if it has never been finished. Committing to it is the Play button's job, so
+	// a mistapped tile costs a second tap instead of a trip into a level and back
+	// out through the pause menu.
 	if (fired >= HIT_CELL0)
 	{
-		chosenLevel = levelPage * LEVELS_PER_PAGE + (fired - HIT_CELL0) + 1;
-		active = false;
-		return TITLE_PLAY;
+		const int cell = fired - HIT_CELL0;
+		chosenLevel = levelPage * LEVELS_PER_PAGE + cell + 1;
+		return TITLE_STAY;
 	}
 
 	// One of the Controls page's twelve rows. Nine of them (everything but
@@ -730,6 +782,15 @@ titleAction titleInput(u32 kDown, u32 kHeld, u32 kUp)
 			}
 			break;
 
+		case HIT_PLAY_LEVEL:
+			// The pick is already in chosenLevel - the tile put it there - so this
+			// only has to leave. Paging does not move it, which is deliberate: a
+			// player flicking to page two to look at what is coming can flick back
+			// and still have the kit they had chosen, rather than a silent
+			// reassignment to whatever tile happens to sit under the same finger.
+			active = false;
+			return TITLE_PLAY;
+
 		case HIT_PREV:
 			if (levelPage > 0) levelPage--;
 			break;
@@ -790,27 +851,13 @@ void titlePrintTop(bool isNew3DS)
 	switch (page)
 	{
 		case PAGE_LEVELS:
-		{
-			const int first = levelPage * LEVELS_PER_PAGE;
-			printf(STR(STR_C_LEVELS_HDR), first + 1, first + LEVELS_PER_PAGE);
-			printf("--------------------------------------------------");
-			// The shelf: which of these ten are already on it, and the
-			// running total underneath. A finished kit is called out in
-			// words here rather than by a symbol, because the console has
-			// the width for it and words survive being read at arm's
-			// length on a 2DS better than a glyph does.
-			for (int i = 0; i < LEVELS_PER_PAGE; i++)
-				printf(STR(STR_C_LEVEL_ROW), first + i + 1,
-					meshKitPartCount(first + i + 1),
-					levelBuilt[first + i] ? STR(STR_BUILT_TAG) : "");
-			printf("\n");
-			printf(STR(STR_C_BUILT_TOTAL), builtTotal(), LEVEL_COUNT);
-			printf("\n");
-			printf("%s", STR(STR_C_LEVELS_HELP1));
-			printf("\n");
-			printf("%s", STR(STR_C_LEVELS_HELP2));
+			// Deliberately nothing. The level select hands the top screen to the
+			// 3D preview in main.c, which clears and redraws it every frame -
+			// anything printed here would be wiped before a player could read it.
+			// The kit's name, its part count and whether it has been built are
+			// drawn over the model itself instead, where they describe the thing
+			// being looked at rather than the list of ten it came from.
 			break;
-		}
 
 		case PAGE_OPTIONS:
 			printf("%s", STR(STR_C_OPTIONS_HDR));
@@ -956,7 +1003,6 @@ static void drawTextCentred(const C2D_Text* t, const rect* r, float scale, u32 c
 #define RAIL_X    12.0f
 #define RAIL_W    12.0f
 #define MAT_GRID  20.0f
-#define CHIP      10.0f
 
 static void drawFrameRect(const rect* r, float t, u32 clr)
 {
@@ -1101,15 +1147,52 @@ static void drawTick(float x, float y, u32 colour)
 			0.0f, TICK_BLK*2.0f, TICK_BLK*2.0f, colour);
 }
 
+// How hard a kit is to build, drawn in the corner the single chip used to
+// occupy: four slots, of which the kit's difficulty is filled in.
+//
+// The number is the kit's runner count, which is what a real model kit is graded
+// by on the side of its box, and it is the only authored figure in this game that
+// actually varies from kit to kit. Part count does not - all twenty are exactly
+// ten, which is what the old size-banded chip fell over on. Dependency depth does
+// vary, 2 to 5, but not in an order anyone would accept: it would rank the Star
+// Trophy on level 1 above the Large Mech on level 20. Runners come out
+// 1,1,1,1,2,1,1,2,2,2,2,2,2,3,3,3,4,4,4,4 across levels 1-20, which is the
+// author's own ramp, and more runners means more frames to find a part on and
+// more boxes open on the desk.
+//
+// Count, not colour, carries the difficulty: two filled pips is two filled pips
+// with the hue taken away. Colour is the second channel and it carries the other
+// fact - the pips are green on a kit that has been finished and red on one that
+// has not, which is what the chip in this corner said before. So the strip says
+// both things the tile has to say, in the space the chip already had, and the
+// tick in the opposite corner still says "finished" a third time by shape alone.
+#define PIP_W    7.0f
+#define PIP_H    8.0f
+#define PIP_GAP  2.0f
+static void drawDifficultyPips(const rect* r, int difficulty, u32 filled)
+{
+	const float x = r->x + PART_EDGE;
+	const float y = r->y + PART_EDGE;
+	for (int i = 0; i < MESH_MAX_RUNNERS; i++)
+	{
+		// An empty slot is drawn in the mould-line colour rather than left out.
+		// Four slots always present is what makes one filled pip read as "one out
+		// of four" on its own tile, instead of only meaning something once the
+		// player has found a busier tile to compare it against.
+		C2D_DrawRectSolid(x + i * (PIP_W + PIP_GAP), y, 0.0f, PIP_W, PIP_H,
+			i < difficulty ? filled : CLR_STY_EDGE);
+	}
+}
+
 // A level is a part still attached to the runner: the same styrene, the number
-// on its face, and a chip of the tier colour in the corner the way a real part
-// carries its number stamped beside it. A kit that has been finished also
-// carries a tick in the far corner, which is the only thing on this screen that
-// says what the player has already done.
-static void drawLevelPart(const rect* r, const C2D_Text* num, u32 chip, bool built)
+// on its face, and the difficulty strip in the corner the way a real part carries
+// its number stamped beside it. A kit that has been finished also carries a tick
+// in the far corner.
+static void drawLevelPart(const rect* r, const C2D_Text* num, u32 chip, bool built,
+                          int difficulty)
 {
 	drawStyrene(r, pressedOn(r));
-	C2D_DrawRectSolid(r->x + PART_EDGE, r->y + PART_EDGE, 0.0f, CHIP, CHIP, chip);
+	drawDifficultyPips(r, difficulty, chip);
 	drawTextCentred(num, r, 1.0f, CLR_INK);
 	if (built)
 		drawTick(r->x + r->w - PART_EDGE - 22.0f,
@@ -1135,18 +1218,19 @@ static void drawLevelRunner(void)
 	}
 }
 
-// The chip on each tile says whether that kit is finished: green for built, red
-// for still to do.
+// What colour the difficulty pips are drawn in, which is where "have I finished
+// this one" is said: green for built, red for still to do.
 //
-// It used to band the chip by part count - green under six, amber to fifteen,
-// red above - which was a scale that could not move, because every kit in the
-// game is exactly ten parts. Twenty identical amber chips look like they encode
-// something and do not. Completion is the one thing that does differ tile to
-// tile, so the chip now carries that.
+// This started as a size band on a single chip - green under six parts, amber to
+// fifteen, red above - a scale that could not move, because every kit in the game
+// is exactly ten parts. Twenty identical amber chips look like they encode
+// something and do not. The chip was given completion to carry instead, and now
+// that the corner holds a strip rather than one square, the strip carries
+// difficulty by how many pips are filled and completion by what colour they are.
 //
-// Colour is the second channel here, not the only one: the tick drawn in the
-// corner says the same thing by shape, so nothing on this page needs hue to be
-// told apart.
+// Colour is the second channel for both facts, never the only one: the count says
+// the difficulty with the hue taken away, and the tick drawn in the far corner
+// says "finished" by shape. Nothing on this page needs two hues told apart.
 static u32 builtColour(bool built)
 {
 	return built ? CLR_ACC_GO : CLR_ACC_OUT;
@@ -1167,11 +1251,12 @@ static void drawTitlePage(void)
 	drawTextAt(&txtTitle,   rPlaqueTitle.x + 12.0f, top,             0.85f, CLR_INK);
 	drawTextAt(&txtTagline, rPlaqueTitle.x + 13.0f, top + nh + 3.0f, 0.38f, CLR_INK_DIM);
 
-	// The rail the three buttons are still moulded onto, with a gate running out
-	// to each one. It fills the empty strip left of the buttons, so the menu
-	// arrives on a runner the same way the kit does.
-	C2D_DrawRectSolid(RAIL_X, 62.0f, 0.0f, RAIL_W, 174.0f, CLR_RUNNER);
-	C2D_DrawRectSolid(RAIL_X, 62.0f, 0.0f, 3.0f,   174.0f, CLR_RUN_LIP);
+	// The rail the three buttons are moulded onto, with a gate running out to
+	// each one. It fills the empty strip left of the buttons, so the menu arrives
+	// on a runner the same way the kit does. Runs from the top of the first
+	// button to the bottom of the last: rPlay.y - 6 to rQuit's bottom edge + 6.
+	C2D_DrawRectSolid(RAIL_X, 56.0f, 0.0f, RAIL_W, 168.0f, CLR_RUNNER);
+	C2D_DrawRectSolid(RAIL_X, 56.0f, 0.0f, 3.0f,   168.0f, CLR_RUN_LIP);
 
 	static const rect* const hangers[3] = { &rPlay, &rOptions, &rQuit };
 	for (int i = 0; i < 3; i++)
@@ -1179,9 +1264,9 @@ static void drawTitlePage(void)
 			hangers[i]->y + (hangers[i]->h - GATE_H) * 0.5f,
 			0.0f, GATE_W, GATE_H, CLR_RUNNER);
 
-	drawPartButton(&rPlay,    &txtPlay,    0.85f, CLR_ACC_GO);
-	drawPartButton(&rOptions, &txtOptions, 0.85f, CLR_ACC_SET);
-	drawPartButton(&rQuit,    &txtQuit,    0.85f, CLR_ACC_OUT);
+	drawPartButton(&rPlay,    &txtPlay,    0.8f, CLR_ACC_GO);
+	drawPartButton(&rOptions, &txtOptions, 0.8f, CLR_ACC_SET);
+	drawPartButton(&rQuit,    &txtQuit,    0.8f, CLR_ACC_OUT);
 }
 
 static void drawLevelsPage(void)
@@ -1189,14 +1274,20 @@ static void drawLevelsPage(void)
 	const int first = levelPage * LEVELS_PER_PAGE;
 
 	drawMat();
-	drawPlaqueLabel(&rPlaquePage, &txtLevHdr, 0.55f);
+
+	// Where the page's name plaque used to be. The name was the least useful
+	// thing on the page - a player who is looking at twenty numbered tiles knows
+	// what page they are on - and Back was down in the bottom row taking up the
+	// widest button on the screen. Swapping the two frees that button for Play,
+	// which is the thing this page now needs and did not have.
+	drawPartButton(&rLevTopBack, &txtBack, 0.62f, CLR_ACC_OUT);
 
 	// Which ten are on screen and how many of the twenty are finished, printed on
-	// the mat to the right of the plaque. It is rebuilt every frame, so it goes
-	// in the dynamic buffer alongside the volume percentage.
+	// the mat to the right of the Back button. It is rebuilt every frame, so it
+	// goes in the dynamic buffer alongside the volume percentage.
 	//
 	// The tally shares the line rather than getting one of its own because there
-	// is no second line to have: the plaque is 28 tall at y 6 and the top row of
+	// is no second line to have: the button is 40 tall at y 6 and the top row of
 	// tiles starts at y 52.
 	C2D_TextBufClear(dynBuf);
 	// Sized for the widest an int pair can print, not for the two strings this
@@ -1209,15 +1300,27 @@ static void drawLevelsPage(void)
 	float rw, rh;
 	C2D_TextGetDimensions(&txtRange, 0.45f, 0.45f, &rw, &rh);
 	drawTextAt(&txtRange, SCREEN_W - 14.0f - rw,
-		rPlaquePage.y + (rPlaquePage.h - rh) * 0.5f, 0.45f, CLR_TAG);
+		rLevTopBack.y + (rLevTopBack.h - rh) * 0.5f, 0.45f, CLR_TAG);
 
 	drawLevelRunner();
+	// The tile the top screen is currently showing is drawn outlined, so the page
+	// answers "which one am I about to play" without the player having to
+	// remember what they last tapped. The outline is the same ink line a selected
+	// part gets on the workbench, so it needed no new visual language.
 	for (int i = 0; i < LEVELS_PER_PAGE; i++)
+	{
+		const int level = first + i + 1;
 		drawLevelPart(&rLevel[i], &txtNum[first + i],
-			builtColour(levelBuilt[first + i]), levelBuilt[first + i]);
+			builtColour(levelBuilt[first + i]), levelBuilt[first + i],
+			meshKitRunnersFor(level));
+		if (level == chosenLevel)
+			drawFrameRect(&rLevel[i], PART_EDGE, CLR_INK);
+	}
 
 	drawSquareButton(&rPrev, &txtPrev, 0.9f, levelPage > 0);
-	drawPartButton(&rLevBack, &txtBack, 0.8f, CLR_ACC_OUT);
+	// Green, and where Back used to be: this is the one button on the page that
+	// starts a build, which is what green means everywhere else in the front end.
+	drawPartButton(&rLevPlay, &txtPlay, 0.8f, CLR_ACC_GO);
 	drawSquareButton(&rNext, &txtNext, 0.9f, levelPage < LEVEL_PAGES - 1);
 }
 

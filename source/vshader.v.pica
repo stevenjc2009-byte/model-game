@@ -67,12 +67,22 @@
 
 	; Calculate the diffuse level (r0.x) and the shininess level (r0.y)
 	; r0.x = max(0, -(lightVec * r1))
-	; r0.y = max(0, (-lightHalfVec[i]) * r1) ^ 2
+	; r0.y = max(0, (-lightHalfVec[i]) * r1) ^ 4
+	;
+	; Squared twice rather than once. Power 2 spreads the highlight over most of
+	; the lit hemisphere, which on a moulded plastic part reads as the whole part
+	; being pale rather than as a sheen on part of it; power 4 pulls it in to
+	; roughly the width a satin injection-moulded surface has. It stops here
+	; because this is per-vertex Gouraud lighting - the highlight is computed at
+	; the corners and interpolated across the face - so a lobe much narrower than
+	; a triangle starts to pop between vertices as the camera moves instead of
+	; sliding across the surface.
 	dp3 r0.x, lightVec,      r1
 	add r0.x, zeros,         -r0
 	dp3 r0.y, -lightHalfVec, r1
 	max r0,   zeros,         r0
 	mul r0.y, r0,            r0
+	mul r0.y, r0.y,          r0.y
 
 	; Accumulate the vertex color in r1, initializing it to the emission color
 	mov r1, mat_emi
